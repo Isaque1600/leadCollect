@@ -75,6 +75,7 @@ secrets (`VERCEL_DEPLOY_HOOK_MAIN` / `_DEV`).
 | 15 | Local Docker Compose env | not started |
 | 16 | Migrations on deploy | not started (low priority) |
 | 17 | OpenAPI docs via @nestjs/swagger | not started |
+| 18 | SPA routing, protected routes, app shell | ready-for-agent — blocks 04 |
 
 ## What the API looks like now (landed in PR #2)
 
@@ -127,7 +128,8 @@ New first-party deps, both named in ADR-0008: `@nestjs/config`,
 
 1. Finish wiring sign-in end to end (see the human actions below) and click
    through it on the dev environment.
-2. Then ticket 03 (Maps source job backend) is the next implementation ticket;
+2. Then ticket 03 (Maps source job backend) is the next implementation ticket.
+   Ticket 18 (SPA routing) now blocks 04 and can run in parallel with 03;
    15 and 17 are independent and can go any time.
 3. Open a ticket for the POST code-exchange token hardening.
 
