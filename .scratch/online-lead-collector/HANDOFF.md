@@ -52,14 +52,17 @@ secrets (`VERCEL_DEPLOY_HOOK_MAIN` / `_DEV`).
 
 ## Current state
 
-- `main` is at the merge of PR #1 — walking skeleton + all infra, **no auth**.
+- **Sign-in works end to end in both environments** (verified 2026-09-02).
+- `main` is at the merge of PR #3 — auth + the ADR-0008 API. Both Neon
+  databases are migrated; both Render services send the correct
+  `redirect_uri`.
 - **`dev` has auth.** PR #2 merged 2026-09-02 (`c01721a`), carrying Google
   sign-in *and* the ADR-0008 restructure of `apps/api`. `dev` is therefore well
   ahead of `main`; the next `dev → main` PR is a big one.
 - Render's `leadCollect-Dev` auto-deploys from `dev`, so the dev API is the
   first environment to run the new config validation.
-- The dev Neon database has its `users` table (migration run by hand,
-  2026-09-02). **Prod has not been migrated yet.**
+- Both Neon databases have their `users` table (migrations run by hand,
+  2026-09-02).
 
 ### Tickets
 
@@ -135,41 +138,35 @@ New first-party deps, both named in ADR-0008: `@nestjs/config`,
 
 ## Outstanding human actions
 
-1. **Google OAuth client** — created, scopes verified correct
-   (`openid email profile`), and the Render env vars are set. Two things left:
-   - Register the **Authorized redirect URIs**. Google matches exactly — scheme,
-     host, port, path, no trailing slash:
-     ```
-     http://localhost:3000/auth/google/callback
-     https://leadcollect-dev.onrender.com/auth/google/callback
-     https://leadcollect-prod.onrender.com/auth/google/callback
-     ```
-   - **Fix `GOOGLE_CALLBACK_URL` on `leadCollect-Dev`.** As of 2026-09-02 the dev
-     service still redirects to Google with
-     `redirect_uri=http://localhost:3000/auth/google/callback`, so a sign-in on
-     dev bounces the browser back to localhost. Check prod's too. Each service's
-     value must be byte-identical to its URI above.
+Nothing blocking — auth is live in both environments. What is left is tidy-up:
 
-   To re-check without a browser:
-   `curl -sD - https://leadcollect-dev.onrender.com/auth/google -o /dev/null | grep -i location`
-2. **Migrate the prod database**: `NODE_ENV=production pnpm --filter @olc/api
-   db:migrate`. Dev is already done.
-3. **Known rough edge:** `WEB_APP_URL` is set with a trailing slash on both
-   services, and `appConfig` does not normalise it, so the sign-in redirect
-   builds `https://host//#token=…` (double slash). Either drop the slash from
-   the env var or make `app.config.ts` strip it. `CORS_ORIGINS` must stay
-   slash-free either way — a browser `Origin` header never has one.
-4. `JWT_SECRET` is **at least 16 characters** or the API refuses to
-   now required to be at least 16 characters. Confirmed satisfied on dev — the
-   service booted after the merge and `/health` answers in Terminus's shape
-   (`{"status":"ok","info":{},...}`) rather than the walking skeleton's
-   `{"status":"ok"}`. Prod still runs the old code, so it is unverified there.
-5. Optional tidy: align `leadCollect-Dev`'s Render build/start commands with
+1. **`WEB_APP_URL` has a trailing slash** on both Render services and
+   `app.config.ts` does not normalise it, so the sign-in redirect builds
+   `https://host//#token=…`. It works, but it is luck. Either drop the slash or
+   strip it in config. `CORS_ORIGINS` must stay slash-free regardless — a
+   browser `Origin` header never has one.
+2. **Stale copies of the Vercel deploy hooks** live in the `Preview` and
+   `Production` GitHub *environments* from the first attempt at wiring them.
+   Nothing reads them (the `deploy-web` job declares no `environment:`, which is
+   exactly why they did not work). Duplicate hook copies are a rotation hazard —
+   delete them. Leave the `copilot` environment alone.
+3. **Two stale agent worktrees** under `.claude/worktrees/`
+   (`agent-a38fb8837fc74fe8b`, `agent-ac228d1989b458fd6`) still hold old
+   checkouts. `git worktree remove --force <path>` then `git worktree prune`.
+4. Optional tidy: align `leadCollect-Dev`'s Render build/start commands with
    prod's (add `corepack enable`, use `&&` not `;`).
-6. Two stale agent worktrees under `.claude/worktrees/` still hold
-   `feature/02-google-login` checked out at old commits
-   (`agent-a38fb8837fc74fe8b`, `agent-ac228d1989b458fd6`). Prune them:
-   `git worktree remove --force <path>` then `git worktree prune`.
+
+### Gotchas learned the hard way (2026-09-02)
+
+- Render serves apps from **`onrender.com`**; `render.com` is the dashboard.
+  A `GOOGLE_CALLBACK_URL` on the wrong domain (or on `http`) gives Google's
+  `Error 400: redirect_uri_mismatch`, which does not say which side is wrong.
+- Check what a service actually sends without opening a browser:
+  `curl -sD - https://<host>/auth/google -o /dev/null | grep -i location`
+- Vercel deploy hooks must be **repository** secrets. An environment secret is
+  invisible to a job that declares no `environment:`, and `deploy-web` does not.
+- The dev Vercel alias sits behind Deployment Protection — it 302s to
+  `vercel.com/sso-api`, so only a logged-in browser can load it.
 
 Local env files are `apps/api/.env.development.local` and
 `.env.production.local` (gitignored). The dev one points at Neon dev for now and
