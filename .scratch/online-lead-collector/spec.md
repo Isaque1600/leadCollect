@@ -25,6 +25,9 @@ decisions this breakdown assumes.
 | 11 | GitHub repo + push (human) | 01 |
 | 12 | Deploy the API to Render (human) | 11 |
 | 13 | Deploy the SPA to Vercel + wire end to end (human) | 12 |
+| 14 | Make CI steps explicit | 01 |
+| 15 | Local Docker Compose environment (clean-build audit) | 01 |
+| 16 | Run database migrations on deploy | 02 |
 
 Critical path: 01 → 02 → 03 → 05 → 06 → 07 → 08. Tickets 04, 09, 10 form a
 parallel frontend track once 03 lands. Tickets 11–13 are human infra setup that

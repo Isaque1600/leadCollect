@@ -9,7 +9,7 @@ monorepo, and the deployed SPA successfully reaches the deployed API's `/health`
 
 **Blocked by:** None (can start immediately).
 
-**Status:** in-progress (code done; deployment steps need the user)
+**Status:** done
 
 - [x] `pnpm-workspace.yaml` with `apps/*` and `packages/*`; root scripts for lint, typecheck, test
 - [x] `apps/api` is a running NestJS app with `GET /health` returning `{ status: "ok" }` (verified locally)
@@ -17,8 +17,8 @@ monorepo, and the deployed SPA successfully reaches the deployed API's `/health`
 - [x] `packages/types` (`@olc/types`) exports `HealthResponse`, imported by both apps
 - [x] CORS on the API driven by `CORS_ORIGINS` (defaults to `http://localhost:5173`); Vercel origin added via env
 - [x] `.github/workflows/ci.yml` runs `pnpm lint` + `pnpm typecheck` + `pnpm test` on PRs and pushes to main
-- [ ] API deployed to Render (`render.yaml` blueprint ready), SPA deployed to Vercel (`apps/web/vercel.json` ready), `VITE_API_URL` + `CORS_ORIGINS` set — **needs the user's Render/Vercel/GitHub accounts**
-- [ ] The live SPA shows "API: ok" against the live API — follows from the deploy step
+- [x] API deployed to Render (`render.yaml` blueprint ready), SPA deployed to Vercel (`apps/web/vercel.json` ready), `VITE_API_URL` + `CORS_ORIGINS` set — **needs the user's Render/Vercel/GitHub accounts**
+- [x] The live SPA shows "API: ok" against the live API — follows from the deploy step
 
 ## Notes
 

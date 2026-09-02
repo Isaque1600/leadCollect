@@ -6,11 +6,13 @@
     "node": ">=22"
   },
   "scripts": {
+    "types:build": "pnpm --filter @olc/types run build",
     "build": "pnpm -r build",
     "dev": "pnpm -r --parallel dev",
     "lint": "eslint .",
     "format": "prettier --write .",
     "typecheck": "pnpm -r typecheck",
+    "pretest": "pnpm run types:build",
     "test": "pnpm -r test"
   },
   "devDependencies": {

@@ -3,29 +3,63 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, dev]
 
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
         with:
           version: 11.5.1
 
-      - uses: actions/setup-node@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
 
-      - run: pnpm install --frozen-lockfile
+      - name: Install
+        run: pnpm install --frozen-lockfile
 
-      - run: pnpm --filter @olc/types build
+      - name: Build shared types
+        run: pnpm --filter @olc/types build
 
-      - run: pnpm lint
+      - name: Lint
+        run: pnpm lint
 
-      - run: pnpm typecheck
+      - name: Typecheck
+        run: pnpm typecheck
 
-      - run: pnpm test
+      - name: Test
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+  deploy-web:
+    # Only after checks pass, and only on a real push to an env branch
+    needs: check
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Vercel deploy hook
+        env:
+          HOOK_MAIN: ${{ secrets.VERCEL_DEPLOY_HOOK_MAIN }}
+          HOOK_DEV: ${{ secrets.VERCEL_DEPLOY_HOOK_DEV }}
+        run: |
+          case "$GITHUB_REF" in
+            refs/heads/main) HOOK="$HOOK_MAIN" ;;
+            refs/heads/dev)  HOOK="$HOOK_DEV" ;;
+            *) echo "No env branch; skipping."; exit 0 ;;
+          esac
+          if [ -z "$HOOK" ]; then
+            echo "No deploy hook secret set for $GITHUB_REF; skipping."
+            exit 0
+          fi
+          echo "Triggering Vercel deploy for $GITHUB_REF"
+          curl -fsS -X POST "$HOOK" > /dev/null

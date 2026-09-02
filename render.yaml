@@ -1,15 +1,70 @@
+# Two fully separate environments, each its own Render service, branch, env
+# vars and Neon database. See docs/adr/0007-dev-prod-environments.md.
+#
+# NOTE: these services were first created by hand in the dashboard. To bring
+# them under this blueprint, either rename the existing services to match the
+# names below, or delete them and re-sync the blueprint. Ticket 13 covers the
+# reconciliation.
+
 services:
+  # --- production: tracks main ---
   - type: web
-    name: olc-api
+    name: leadCollect-Prod
     runtime: node
     plan: free
     region: oregon
-    rootDir: .
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @olc/types build && pnpm --filter @olc/api build
-    startCommand: pnpm --filter @olc/api start
+    branch: main
+    rootDir: apps/api
+    buildCommand: pnpm install --frozen-lockfile; pnpm run build
+    startCommand: pnpm start
     healthCheckPath: /health
     envVars:
       - key: NODE_VERSION
         value: "22"
       - key: CORS_ORIGINS
+        sync: false # prod SPA origin (Vercel production URL)
+      - key: DATABASE_URL
+        sync: false # prod Neon pooled URL
+      - key: DATABASE_URL_DIRECT
+        sync: false # prod Neon direct URL (migrations)
+      - key: JWT_SECRET
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_CALLBACK_URL
+        sync: false
+      - key: WEB_APP_URL
+        sync: false
+
+  # --- development: tracks dev ---
+  - type: web
+    name: leadCollect-Dev
+    runtime: node
+    plan: free
+    region: oregon
+    branch: dev
+    rootDir: apps/api
+    buildCommand: pnpm install --frozen-lockfile; pnpm run build
+    startCommand: pnpm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: CORS_ORIGINS
+        sync: false # localhost:5173 + Vercel preview URL
+      - key: DATABASE_URL
+        sync: false # dev Neon pooled URL (separate database)
+      - key: DATABASE_URL_DIRECT
+        sync: false # dev Neon direct URL (migrations)
+      - key: JWT_SECRET
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_CALLBACK_URL
+        sync: false
+      - key: WEB_APP_URL
         sync: false

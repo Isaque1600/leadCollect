@@ -39,5 +39,12 @@ CI runs all four on every PR.
 
 ## Deploy
 
-- **API → Render**: point Render at `render.yaml`; set `CORS_ORIGINS` to the SPA URL.
-- **SPA → Vercel**: import the repo, root directory `apps/web`; set `VITE_API_URL` to the API URL.
+Two isolated environments, each tracking a branch — see
+[ADR-0007](docs/adr/0007-dev-prod-environments.md).
+
+| Env | API (Render) | branch | SPA (Vercel) | DB (Neon) |
+| --- | --- | --- | --- | --- |
+| dev | `olc-api-dev` | `dev` | preview deploys | dev database |
+| prod | `olc-api` | `main` | production | prod database |
+
+`render.yaml` defines both API services. Promotion is a `dev → main` PR.
