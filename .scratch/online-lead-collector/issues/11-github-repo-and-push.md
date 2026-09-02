@@ -6,12 +6,12 @@ confirm the `CI` workflow runs and passes on the pushed commit.
 
 **Blocked by:** 01
 
-**Status:** ready-for-human
+**Status:** ready-for-agent
 
-- [ ] GitHub repo created (private recommended)
-- [ ] `git remote add origin <url>` and `git push -u origin main`
-- [ ] The `CI` workflow appears under the Actions tab and passes (lint + typecheck + test)
-- [ ] Branch protection on `main` optional but recommended: require the CI check to pass before merge
+- [x] GitHub repo created (private recommended)
+- [x] `git remote add origin <url>` and `git push -u origin main`
+- [x] The `CI` workflow appears under the Actions tab and passes (lint + typecheck + test)
+- [x] Branch protection on `main` optional but recommended: require the CI check to pass before merge
 
 ## Notes
 
