@@ -79,6 +79,7 @@ secrets (`VERCEL_DEPLOY_HOOK_MAIN` / `_DEV`).
 | 16 | Migrations on deploy | not started (low priority) |
 | 17 | OpenAPI docs via @nestjs/swagger | not started |
 | 18 | SPA routing, protected routes, app shell | ready-for-agent — blocks 04 |
+| 19 | POST code exchange for token delivery | ready-for-agent — do after 18 |
 
 ## What the API looks like now (landed in PR #2)
 
@@ -112,8 +113,8 @@ New first-party deps, both named in ADR-0008: `@nestjs/config`,
   → both covered, plus the displayName fallback and the `GET /me` path.
 - ~~The `makeDb` thenable mock~~ → replaced by an in-memory `Users` fake.
 - **Still open, deliberately:** the token is handed to the SPA in a URL fragment.
-  A POST code exchange is the hardening path — **it wants its own ticket**, it
-  was left out of PR #2 on purpose.
+  The POST code exchange that hardens it is now **ticket 19**, to be done after
+  ticket 18 lands `/auth/callback`.
 
 ### Worth knowing about the merged code
 
@@ -134,7 +135,7 @@ New first-party deps, both named in ADR-0008: `@nestjs/config`,
 2. Then ticket 03 (Maps source job backend) is the next implementation ticket.
    Ticket 18 (SPA routing) now blocks 04 and can run in parallel with 03;
    15 and 17 are independent and can go any time.
-3. Open a ticket for the POST code-exchange token hardening.
+3. Ticket 19 (token hardening) after 18.
 
 ## Outstanding human actions
 
