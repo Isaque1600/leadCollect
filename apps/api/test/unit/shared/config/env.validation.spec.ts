@@ -8,6 +8,7 @@ const complete = {
   GOOGLE_CALLBACK_URL: "http://localhost:3000/auth/google/callback",
   JWT_SECRET: "a-long-enough-signing-secret",
   WEB_APP_URL: "http://localhost:5173",
+  GOOGLE_PLACES_API_KEY: "places-api-key",
 };
 
 describe("validateEnv", () => {
@@ -18,6 +19,7 @@ describe("validateEnv", () => {
     expect(env.CORS_ORIGINS).toBe("http://localhost:5173");
     expect(env.NODE_ENV).toBe("development");
     expect(env.JWT_SECRET).toBe(complete.JWT_SECRET);
+    expect(env.GOOGLE_PLACES_API_KEY).toBe(complete.GOOGLE_PLACES_API_KEY);
   });
 
   it("rejects a missing JWT_SECRET", () => {
@@ -33,6 +35,15 @@ describe("validateEnv", () => {
   it("rejects a JWT_SECRET that is too short to be a secret", () => {
     expect(() => validateEnv({ ...complete, JWT_SECRET: "short" })).toThrow(
       /JWT_SECRET must be at least/,
+    );
+  });
+
+  it("rejects a missing or blank GOOGLE_PLACES_API_KEY", () => {
+    const { GOOGLE_PLACES_API_KEY: _omitted, ...rest } = complete;
+
+    expect(() => validateEnv(rest)).toThrow(/GOOGLE_PLACES_API_KEY is required/);
+    expect(() => validateEnv({ ...complete, GOOGLE_PLACES_API_KEY: "  " })).toThrow(
+      /GOOGLE_PLACES_API_KEY is required/,
     );
   });
 

@@ -36,3 +36,50 @@ export interface AuthTokenClaims {
 export interface AuthCallbackParams {
   token: string;
 }
+
+/**
+ * Where a Lead came from (CONTEXT.md: Source). The Portuguese labels are the
+ * `fonte` value kept in exports, so they are the stored value too.
+ */
+export type SourceLabel = "Google Maps" | "Busca Web";
+
+/**
+ * A Job's lifecycle. `cancelled` is reachable only once ticket 09 adds the
+ * cancel endpoint; it is part of the contract from the start so the SPA can
+ * treat it as terminal.
+ */
+export type JobStatus = "queued" | "running" | "done" | "failed" | "cancelled";
+
+/** The structured search a Job is started with — the body of `POST /jobs`. */
+export interface StartJobRequest {
+  businessType: string;
+  city: string;
+  /** Brazilian state, usually the two-letter UF (e.g. "PB"). */
+  state: string;
+  /** How many results to ask each Source for. The Places API caps this at 20. */
+  maxResults: number;
+}
+
+/** What `POST /jobs` answers with: enough to navigate to the progress view. */
+export interface StartJobResponse {
+  id: string;
+  status: JobStatus;
+}
+
+/**
+ * What `GET /jobs/:id` answers with — the payload the SPA polls (ADR-0003:
+ * progress lives on the `jobs` row, the frontend polls, there is no queue).
+ *
+ * `apiCallsUsed` counts Billable Calls (CONTEXT.md), i.e. Places details
+ * requests; the text search itself is not billed per Lead.
+ */
+export interface JobProgressResponse {
+  id: string;
+  status: JobStatus;
+  queriesTotal: number;
+  queriesDone: number;
+  leadsFound: number;
+  apiCallsUsed: number;
+  currentStep: string | null;
+  error: string | null;
+}
