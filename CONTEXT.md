@@ -6,6 +6,11 @@ user export the leads they collected as an Excel file.
 
 ## Language
 
+**User**:
+A person who has signed in with Google and collects Leads. Carries a Quota and
+owns a set of Collected Leads. There is no other kind of account.
+_Avoid_: Account, customer, member
+
 **Lead**:
 A business or establishment record with contact information (name, phone/WhatsApp,
 email, website, business type). The unit of value the product produces.

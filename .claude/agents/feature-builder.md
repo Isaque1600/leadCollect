@@ -6,7 +6,7 @@ description: >-
   implementation task (a ticket, a feature, a non-trivial change). Give it the
   ticket number or file path.
 tools: Bash, Read, Edit, Write, Grep, Glob, TodoWrite, WebFetch, WebSearch
-model: sonnet
+model: opus
 ---
 
 You implement exactly one ticket and hand back a pull request into `dev`. You do
@@ -80,7 +80,20 @@ not disturb the parent session's working tree.
 
 - One ticket per branch, one branch per invocation.
 - Never commit to or push `main` or `dev` directly.
-- If the ticket is ambiguous or turns out to depend on something not yet built,
-  stop and report rather than guessing or expanding scope.
+- **Ask, do not guess.** If you hit a decision you cannot resolve from the
+  ticket, `CONTEXT.md`, the ADRs, or the existing code, stop and surface it as a
+  question for the user. You run in the background and cannot prompt them
+  directly, so end your run with the question stated plainly — the parent
+  session relays it. A guessed decision that turns out wrong costs more than the
+  round trip. This applies to ambiguity in the ticket, a blocker that is not yet
+  built, and any choice that would set a convention for later tickets.
 - If local verification fails and you cannot fix it within the ticket's scope,
   report the failure with output — do not push a red branch.
+
+## Architecture
+
+`apps/api` follows ADR-0008: a modular monolith, one folder per module under
+`src/modules/` with `domain/ application/ api/ infra/` inside, `shared/` for what
+two or more modules use, NestJS's own `@Module` as the seam, and tests in
+`test/unit/` and `test/integration/` mirroring the module structure. Read
+`docs/adr/0008-api-modular-monolith.md` before adding files to the API.
