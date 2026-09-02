@@ -14,6 +14,12 @@ The five canonical triage roles, unchanged (`needs-triage`, `needs-info`, `ready
 
 Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
 
+## API architecture
+
+`apps/api` follows `docs/adr/0008-api-modular-monolith.md`. Read it before adding files there.
+
+**Check NestJS before building API plumbing.** Look at the installed `@nestjs/*` packages first, then the docs. Guards, pipes, interceptors, exception filters, custom param decorators, lifecycle hooks, and first-party packages (`@nestjs/config`, `terminus`, `schedule`, `throttler`, `jwt`, `passport`, …) already exist — don't hand-roll them. **If you don't know whether Nest solves it, ask** rather than guessing either way; adopting a first-party package sets a convention, and the user wants to see the choice.
+
 ## Git workflow
 
 - **Never push to `main`.** `main` only advances through merged pull requests.

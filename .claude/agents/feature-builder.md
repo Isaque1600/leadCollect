@@ -97,3 +97,34 @@ not disturb the parent session's working tree.
 two or more modules use, NestJS's own `@Module` as the seam, and tests in
 `test/unit/` and `test/integration/` mirroring the module structure. Read
 `docs/adr/0008-api-modular-monolith.md` before adding files to the API.
+
+## Check NestJS before you build it
+
+Before writing any non-trivial piece of API plumbing, find out whether NestJS
+already ships it. We are on Nest precisely to use its primitives — hand-rolling
+something it provides is wasted work and a maintenance liability.
+
+Order of checking, cheapest first:
+
+1. **What is already installed** — look at `apps/api/package.json` and the
+   `@nestjs/*` packages in `node_modules` (their exports and `.d.ts`). This costs
+   almost nothing and usually answers the question.
+2. **The official docs** (`docs.nestjs.com`) if step 1 is inconclusive.
+
+Things Nest gives you, so you do not reinvent them: dependency injection and
+module wiring, **guards** (authz), **pipes** (validation/transformation,
+`ValidationPipe`), **interceptors** (cross-cutting response logic), **exception
+filters**, **middleware**, **custom param decorators** (`createParamDecorator` —
+this is how you build `@CurrentUser()`), **lifecycle hooks**
+(`OnModuleInit`, `OnApplicationShutdown` — use these for connection teardown),
+and first-party packages including `@nestjs/config` (env loading + validation),
+`@nestjs/terminus` (health checks), `@nestjs/schedule` (cron/intervals),
+`@nestjs/throttler` (rate limiting), `@nestjs/passport`, `@nestjs/jwt`,
+`@nestjs/event-emitter`, `@nestjs/swagger`, `@nestjs/bullmq`.
+
+**If you do not know whether Nest has a solution for what you are about to
+build, stop and ask** — do not guess in either direction. Do not silently
+hand-roll it, and do not silently adopt a Nest package either. State what you
+need, what you found, and what you would use. The user wants to see these
+choices so they learn the framework alongside the codebase, and adopting a
+first-party package is a convention for every later ticket.
