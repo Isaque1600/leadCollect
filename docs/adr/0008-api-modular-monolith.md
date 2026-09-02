@@ -25,6 +25,25 @@ resolve a deep path into another module's `infra/`. That is convention-enforced
 for now; an ESLint `no-restricted-imports` rule is the escalation if it is ever
 violated.
 
+## Adopted first-party packages
+
+Before building API plumbing, check what NestJS already ships (installed
+`@nestjs/*` packages first, then the docs) and prefer it. Adopted so far:
+
+- **`@nestjs/config`** — `shared/config/` uses `ConfigModule` for the `.env`
+  cascade and validation, exposing typed namespaces via `registerAs()` +
+  `ConfigType<>` rather than stringly-typed `ConfigService.get()`. Nothing else
+  reads `process.env`.
+- **`@nestjs/terminus`** — the health module uses `HealthCheckService`. Its
+  response keeps a top-level `status: "ok"`, so the SPA's `HealthResponse`
+  contract is unchanged.
+
+`/health` deliberately reports **liveness only** — it does not include a database
+indicator. Render probes this path on every deploy, so a database blip reporting
+through `/health` would fail the health check and block deploys for a fault the
+process has not actually suffered. Readiness (including database connectivity)
+belongs on a separate endpoint if we ever need it.
+
 ## Domain style
 
 Types and pure functions, not rich entities. The domain layer holds plain type
