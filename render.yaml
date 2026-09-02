@@ -15,8 +15,8 @@ services:
     region: oregon
     branch: main
     rootDir: apps/api
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @olc/api build
-    startCommand: pnpm --filter @olc/api start
+    buildCommand: pnpm install --frozen-lockfile; pnpm run build
+    startCommand: pnpm start
     healthCheckPath: /health
     envVars:
       - key: NODE_VERSION
