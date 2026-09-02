@@ -13,7 +13,7 @@ each check actually takes. Revisit only when a single check exceeds ~2-3 minutes
 
 **Blocked by:** 01
 
-**Status:** done (branch `ticket-14-ci-steps`)
+**Status:** done
 
 - [x] `ci.yml` has distinct steps: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, each with a clear `name`
 - [x] `@olc/types` is built before `typecheck` (its consumers need the declaration output) — "Build shared types" step
@@ -26,3 +26,16 @@ each check actually takes. Revisit only when a single check exceeds ~2-3 minutes
 
 - Full sequence (`install → build types → lint → typecheck → test → build`) verified green locally.
 - Added a `Build` step that runs `pnpm build` (`nest build` + `vite build`) — not in the original single job.
+
+## Follow-up (2026-09-02)
+
+`deploy-web` used to `exit 0` when a deploy hook secret was missing, so the job
+reported **success** while the SPA silently stopped deploying. Since
+`apps/web/vercel.json` disables Vercel's own push-deploys for `main` and `dev`,
+this job is the only thing that ships the SPA — a skip there means nothing
+deploys at all, and CI stays green.
+
+It now fails with a `::error::` naming the missing secret. The trap that caused
+it: the hooks were first added as **environment** secrets, which are only
+injected into a job that declares `environment:`. `deploy-web` does not, so
+`$HOOK_DEV` arrived empty. They must be **repository** secrets.

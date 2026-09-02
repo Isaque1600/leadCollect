@@ -6,12 +6,12 @@ a Job and switches to a progress view that polls `GET /jobs/:id` (~2s) and shows
 progress bar and the running counts. When the Job finishes, the view shows how
 many Leads were collected. Errors surface as a message.
 
-**Blocked by:** 03
+**Blocked by:** 03, 18
 
 **Status:** ready-for-agent
 
 - [ ] Search form with fields: business type, city, state, max results per source
-- [ ] Submitting calls `POST /jobs` and navigates to the progress view for that job id
+- [ ] Submitting calls `POST /jobs` and navigates to `/jobs/:id` (the routing and shell come from ticket 18)
 - [ ] Progress view polls `GET /jobs/:id` with TanStack Query and stops polling on `done` / `failed` / `cancelled`
 - [ ] Progress bar derived from `queriesDone / queriesTotal`; counts for leads found and API calls used shown
 - [ ] Terminal states show a clear summary or the error text

@@ -52,14 +52,21 @@ jobs:
           HOOK_MAIN: ${{ secrets.VERCEL_DEPLOY_HOOK_MAIN }}
           HOOK_DEV: ${{ secrets.VERCEL_DEPLOY_HOOK_DEV }}
         run: |
+          # A missing hook must FAIL, not skip. Skipping reported success while
+          # the SPA silently stopped deploying — push-deploys are disabled in
+          # apps/web/vercel.json, so this job is the only thing that ships it.
           case "$GITHUB_REF" in
-            refs/heads/main) HOOK="$HOOK_MAIN" ;;
-            refs/heads/dev)  HOOK="$HOOK_DEV" ;;
-            *) echo "No env branch; skipping."; exit 0 ;;
+            refs/heads/main) HOOK="$HOOK_MAIN"; NAME=VERCEL_DEPLOY_HOOK_MAIN ;;
+            refs/heads/dev)  HOOK="$HOOK_DEV";  NAME=VERCEL_DEPLOY_HOOK_DEV ;;
+            *) echo "::error::deploy-web ran on $GITHUB_REF, which has no deploy hook."; exit 1 ;;
           esac
           if [ -z "$HOOK" ]; then
-            echo "No deploy hook secret set for $GITHUB_REF; skipping."
-            exit 0
+            echo "::error::Repository secret $NAME is not set, so the SPA cannot deploy."
+            echo "Set it with: gh secret set $NAME"
+            echo "It must be a REPOSITORY secret — an environment secret is invisible"
+            echo "to this job, which does not declare an environment."
+            exit 1
           fi
           echo "Triggering Vercel deploy for $GITHUB_REF"
           curl -fsS -X POST "$HOOK" > /dev/null
+          echo "Vercel accepted the deploy hook."

@@ -1,24 +1,26 @@
 import "reflect-metadata";
+import { ConfigType } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
+import { appConfig } from "./shared/config/app.config";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  const origins = (process.env.CORS_ORIGINS ?? "http://localhost:5173")
-    .split(",")
-    .map((o) => o.trim())
-    .filter(Boolean);
+  // Typed config, not process.env — `shared/config` validated it at boot.
+  const config = app.get<ConfigType<typeof appConfig>>(appConfig.KEY);
 
   app.enableCors({
-    origin: origins,
+    origin: config.corsOrigins,
     methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   });
 
-  const port = Number(process.env.PORT ?? 3000);
-  await app.listen(port, "0.0.0.0");
-  console.log(`API listening on :${port} (CORS: ${origins.join(", ")})`);
+  // Lets DbModule's onApplicationShutdown drain the Postgres pool on SIGTERM.
+  app.enableShutdownHooks();
+
+  await app.listen(config.port, "0.0.0.0");
+  console.log(`API listening on :${config.port} (CORS: ${config.corsOrigins.join(", ")})`);
 }
 
 void bootstrap();

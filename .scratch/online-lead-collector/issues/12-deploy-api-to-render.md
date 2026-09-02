@@ -13,6 +13,15 @@
 - [x] Deploy succeeds; note the service URL (e.g. `https://olc-api.onrender.com`)
 - [x] `curl https://<service>.onrender.com/health` returns `{"status":"ok"}`
 
+## Service URLs
+
+Render serves apps from `onrender.com` (`render.com` is the dashboard):
+
+| Service | Branch | URL |
+| --- | --- | --- |
+| `leadCollect-Prod` | `main` | https://leadcollect-prod.onrender.com |
+| `leadCollect-Dev` | `dev` | https://leadcollect-dev.onrender.com |
+
 ## Notes
 
 - Free instances sleep after ~15 min idle; the first request after sleep is slow. Fine for now.

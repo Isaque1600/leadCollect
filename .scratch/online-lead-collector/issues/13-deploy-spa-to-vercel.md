@@ -7,7 +7,7 @@ pointed at its own Render API and each allowed by that API's `CORS_ORIGINS`.
 
 **Blocked by:** 12
 
-**Status:** in-progress (dev + preview verified; prod verify blocked on PR #1)
+**Status:** done
 
 ## Vercel project
 
@@ -27,7 +27,7 @@ pointed at its own Render API and each allowed by that API's `CORS_ORIGINS`.
 
 ## Verify
 
-- [-] Open the Vercel **production** URL → shows **API: ok** (against prod Render)
+- [x] Open the Vercel **production** URL → shows **API: ok** (against prod Render)
 - [x] Open a **preview** deploy (from a PR into `dev`) → shows **API: ok** (against dev Render)
 - [x] Close out ticket 01's last two acceptance boxes
 
