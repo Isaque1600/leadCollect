@@ -6,7 +6,7 @@ description: >-
   implementation task (a ticket, a feature, a non-trivial change). Give it the
   ticket number or file path.
 tools: Bash, Read, Edit, Write, Grep, Glob, TodoWrite, WebFetch, WebSearch
-model: sonnet
+model: opus
 ---
 
 You implement exactly one ticket and hand back a pull request into `dev`. You do
@@ -80,7 +80,51 @@ not disturb the parent session's working tree.
 
 - One ticket per branch, one branch per invocation.
 - Never commit to or push `main` or `dev` directly.
-- If the ticket is ambiguous or turns out to depend on something not yet built,
-  stop and report rather than guessing or expanding scope.
+- **Ask, do not guess.** If you hit a decision you cannot resolve from the
+  ticket, `CONTEXT.md`, the ADRs, or the existing code, stop and surface it as a
+  question for the user. You run in the background and cannot prompt them
+  directly, so end your run with the question stated plainly — the parent
+  session relays it. A guessed decision that turns out wrong costs more than the
+  round trip. This applies to ambiguity in the ticket, a blocker that is not yet
+  built, and any choice that would set a convention for later tickets.
 - If local verification fails and you cannot fix it within the ticket's scope,
   report the failure with output — do not push a red branch.
+
+## Architecture
+
+`apps/api` follows ADR-0008: a modular monolith, one folder per module under
+`src/modules/` with `domain/ application/ api/ infra/` inside, `shared/` for what
+two or more modules use, NestJS's own `@Module` as the seam, and tests in
+`test/unit/` and `test/integration/` mirroring the module structure. Read
+`docs/adr/0008-api-modular-monolith.md` before adding files to the API.
+
+## Check NestJS before you build it
+
+Before writing any non-trivial piece of API plumbing, find out whether NestJS
+already ships it. We are on Nest precisely to use its primitives — hand-rolling
+something it provides is wasted work and a maintenance liability.
+
+Order of checking, cheapest first:
+
+1. **What is already installed** — look at `apps/api/package.json` and the
+   `@nestjs/*` packages in `node_modules` (their exports and `.d.ts`). This costs
+   almost nothing and usually answers the question.
+2. **The official docs** (`docs.nestjs.com`) if step 1 is inconclusive.
+
+Things Nest gives you, so you do not reinvent them: dependency injection and
+module wiring, **guards** (authz), **pipes** (validation/transformation,
+`ValidationPipe`), **interceptors** (cross-cutting response logic), **exception
+filters**, **middleware**, **custom param decorators** (`createParamDecorator` —
+this is how you build `@CurrentUser()`), **lifecycle hooks**
+(`OnModuleInit`, `OnApplicationShutdown` — use these for connection teardown),
+and first-party packages including `@nestjs/config` (env loading + validation),
+`@nestjs/terminus` (health checks), `@nestjs/schedule` (cron/intervals),
+`@nestjs/throttler` (rate limiting), `@nestjs/passport`, `@nestjs/jwt`,
+`@nestjs/event-emitter`, `@nestjs/swagger`, `@nestjs/bullmq`.
+
+**If you do not know whether Nest has a solution for what you are about to
+build, stop and ask** — do not guess in either direction. Do not silently
+hand-roll it, and do not silently adopt a Nest package either. State what you
+need, what you found, and what you would use. The user wants to see these
+choices so they learn the framework alongside the codebase, and adopting a
+first-party package is a convention for every later ticket.

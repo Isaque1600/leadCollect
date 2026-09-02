@@ -13,7 +13,7 @@ each check actually takes. Revisit only when a single check exceeds ~2-3 minutes
 
 **Blocked by:** 01
 
-**Status:** done (branch `ticket-14-ci-steps`)
+**Status:** done
 
 - [x] `ci.yml` has distinct steps: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, each with a clear `name`
 - [x] `@olc/types` is built before `typecheck` (its consumers need the declaration output) — "Build shared types" step
