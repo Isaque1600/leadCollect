@@ -24,14 +24,34 @@ on API calls, and shows the signed-in user's email with a logout button.
 
 ### Decisions
 
-- **DB wiring** (ADR-0006): `apps/api/src/db/db.module.ts` builds the Drizzle
-  handle from `DATABASE_URL` (Neon **pooled**, `prepare: false`) behind a global
-  `DB` provider. `drizzle.config.ts` and `src/db/migrate.ts` use
-  `DATABASE_URL_DIRECT` (Neon **direct**). `postgres()` connects lazily, so
-  `build`/`test` need no live database.
+- **Layout** (ADR-0008): the API is a modular monolith. `src/modules/identity/`
+  owns sign-in (`domain/` user + `Users` port, `application/`
+  `SignInWithGoogleUseCase` + `TokensService`, `api/` controller + strategy +
+  guard + `@CurrentUser()`, `infra/` `identity.schema.ts` +
+  `DrizzleUsersRepository`). `src/modules/health/` is its own module.
+  `src/shared/` holds only what more than one module needs: `config/` and `db/`.
+  `src/schema.ts` is the composition root's merge of every module's schema.
+- **DB wiring** (ADR-0006): `apps/api/src/shared/db/db.module.ts` builds the
+  Drizzle handle from `DATABASE_URL` (Neon **pooled**, `prepare: false`) behind
+  a global `DB` provider, and drains the pool in `onApplicationShutdown`.
+  `drizzle.config.ts` finds schemas by glob (`./src/modules/**/*.schema.ts`) and
+  it and `src/shared/db/migrate.ts` use `DATABASE_URL_DIRECT` (Neon **direct**).
+  `postgres()` connects lazily, so `build`/`test` need no live database.
+- **Config** (ADR-0008): `src/shared/config/` is the only place that reads
+  `process.env`. `@nestjs/config` loads `.env.<NODE_ENV>.local` then `.env`, and
+  `registerAs` + `ConfigType` give typed `app`/`database`/`google`/`jwt`
+  namespaces — no `configService.get("SOME_KEY")` anywhere. `validateEnv` runs
+  at boot and refuses to start on a missing or blank required variable;
+  `JWT_SECRET` must additionally be at least 16 characters.
+- **Health** (ADR-0008): `@nestjs/terminus`'s `HealthCheckService` with an empty
+  indicator list — liveness only, no database indicator, so a Neon blip cannot
+  fail a Render deploy. The response keeps a top-level `status: "ok"`, so the
+  SPA's `HealthResponse` is unchanged.
 - **Migration**: generated at `apps/api/drizzle/0000_users.sql` via
   `pnpm --filter @olc/api db:generate`. Applied with
-  `pnpm --filter @olc/api db:migrate` (runs `src/db/migrate.ts` through `tsx`).
+  `pnpm --filter @olc/api db:migrate` (runs `src/shared/db/migrate.ts` through
+  `tsx`, loading `.env.${NODE_ENV:-development}.local` via node's
+  `--env-file-if-exists`).
 - **OAuth** (ADR-0005): `passport-google-oauth20` with scopes
   `["openid","email","profile"]` only, no `accessType: "offline"` — no refresh
   token, no Drive/Sheets. Config from `GOOGLE_CLIENT_ID`,
@@ -48,9 +68,16 @@ on API calls, and shows the signed-in user's email with a logout button.
   the key.
 - **Shared types**: `MeResponse`, `AuthTokenClaims`, `AuthCallbackParams` added
   to `@olc/types`.
-- **Tests**: `auth.service.spec.ts` (DB mocked — insert-on-first-login,
-  match-on-google_id, JWT round trip) and `jwt-auth.guard.spec.ts` (401 cases).
-  No test opens a Postgres connection.
+- **Tests** (ADR-0008): specs live in `test/unit/<module>/<layer>/`, split from
+  `test/integration/` by `vitest.unit.config.ts` /
+  `vitest.integration.config.ts` (`pnpm test` / `pnpm test:integration`). The
+  old thenable Drizzle mock is gone — the `Users` port has an in-memory
+  `FakeUsers`. Covered: the sign-in use case (create, match on `google_id`,
+  profile refresh), `TokensService` (round trip, foreign secret, expiry),
+  `JwtAuthGuard` (401 cases), `GoogleStrategy.validate` (including the no-email
+  branch), `AuthController` (callback redirect + `GET /me`), and `validateEnv`.
+  No test opens a Postgres connection. The old health spec was deleted — it
+  asserted a hand-written literal that Terminus now produces.
 
 ### Required user setup (no credentials available to the agent)
 
@@ -58,6 +85,9 @@ on API calls, and shows the signed-in user's email with a logout button.
    `DATABASE_URL` (the `-pooler` host) and `DATABASE_URL_DIRECT` (the plain
    host) in `apps/api/.env` locally and in Render env vars.
 2. **Migrate**: `pnpm --filter @olc/api db:migrate` to create the `users` table.
+2b. Local env: copy `apps/api/.env.example` to
+   `apps/api/.env.development.local` (gitignored). The API now refuses to boot
+   with a missing or blank required variable instead of failing later.
 3. **Google Cloud Console**: create an OAuth 2.0 Client (type: Web application).
    Authorized redirect URI = `GOOGLE_CALLBACK_URL`
    (`http://localhost:3000/auth/google/callback` for local, the Render URL in
@@ -72,3 +102,8 @@ on API calls, and shows the signed-in user's email with a logout button.
 - Any use of the token beyond `/me` (job endpoints arrive in tickets 03+).
 - Token refresh / rotation — the 7-day JWT simply expires and the SPA falls back
   to the sign-in button on the next 401.
+- Hardening token delivery: the callback still hands the JWT to the SPA in a URL
+  fragment. Swapping that for a POST code exchange is a documented tradeoff on
+  PR #2 and belongs in its own ticket.
+- Integration tests: `test/integration/` and its config exist but are empty
+  until ticket 15 provides a local Postgres.

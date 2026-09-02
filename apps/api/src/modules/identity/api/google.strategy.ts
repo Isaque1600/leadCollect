@@ -1,20 +1,22 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
+import { ConfigType } from "@nestjs/config";
 import { PassportStrategy } from "@nestjs/passport";
 import { Strategy, type Profile, type VerifyCallback } from "passport-google-oauth20";
-import type { GoogleIdentity } from "./auth.service";
+import { googleConfig } from "../../../shared/config/google.config";
+import type { GoogleIdentity } from "../domain/user";
 
 /**
  * Google OAuth for identity only: scopes `openid email profile`, no offline
- * access (no refresh token), per ADR-0005. Config comes from
- * `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_CALLBACK_URL`.
+ * access and so no refresh token (ADR-0005). Credentials come from
+ * `shared/config`'s `googleConfig`, which is validated at boot.
  */
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, "google") {
-  constructor() {
+  constructor(@Inject(googleConfig.KEY) config: ConfigType<typeof googleConfig>) {
     super({
-      clientID: process.env.GOOGLE_CLIENT_ID ?? "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
-      callbackURL: process.env.GOOGLE_CALLBACK_URL ?? "",
+      clientID: config.clientId,
+      clientSecret: config.clientSecret,
+      callbackURL: config.callbackUrl,
       scope: ["openid", "email", "profile"],
     });
   }
