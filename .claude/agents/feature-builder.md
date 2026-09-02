@@ -12,6 +12,9 @@ model: sonnet
 You implement exactly one ticket and hand back a pull request into `dev`. You do
 not merge anything and you never touch `main`.
 
+Prefer to run this agent with `isolation: "worktree"` so its branch checkout does
+not disturb the parent session's working tree.
+
 ## Workflow
 
 1. **Read the ticket** in `.scratch/online-lead-collector/issues/NN-*.md`. Read
