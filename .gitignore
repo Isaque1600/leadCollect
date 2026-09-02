@@ -20,6 +20,9 @@ coverage/
 .DS_Store
 *.log
 
+# claude code agent worktrees
+.claude/worktrees/
+
 # legacy python
 legacy/__pycache__/
 legacy/*.pyc

@@ -5,7 +5,7 @@ services:
     plan: free
     region: oregon
     rootDir: .
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @olc/types build && pnpm --filter @olc/api build
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @olc/api build
     startCommand: pnpm --filter @olc/api start
     healthCheckPath: /health
     envVars:
