@@ -9,12 +9,12 @@
 services:
   # --- production: tracks main ---
   - type: web
-    name: olc-api
+    name: leadCollect-Prod
     runtime: node
     plan: free
     region: oregon
     branch: main
-    rootDir: .
+    rootDir: apps/api
     buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @olc/api build
     startCommand: pnpm --filter @olc/api start
     healthCheckPath: /health
@@ -40,14 +40,14 @@ services:
 
   # --- development: tracks dev ---
   - type: web
-    name: olc-api-dev
+    name: leadCollect-Dev
     runtime: node
     plan: free
     region: oregon
     branch: dev
-    rootDir: .
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @olc/api build
-    startCommand: pnpm --filter @olc/api start
+    rootDir: apps/api
+    buildCommand: pnpm install --frozen-lockfile; pnpm run build
+    startCommand: pnpm start
     healthCheckPath: /health
     envVars:
       - key: NODE_VERSION
