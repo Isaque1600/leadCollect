@@ -1,0 +1,27 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# builds
+dist/
+build/
+*.tsbuildinfo
+
+# env
+.env
+.env.*
+!.env.example
+service_account.json
+
+# test / coverage
+coverage/
+
+# editor / OS
+.DS_Store
+*.log
+
+# legacy python
+legacy/__pycache__/
+legacy/*.pyc
+legacy/ids_coletados.json
+legacy/leads_maps.xlsx
