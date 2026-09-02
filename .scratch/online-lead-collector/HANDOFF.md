@@ -51,63 +51,94 @@ secrets (`VERCEL_DEPLOY_HOOK_MAIN` / `_DEV`).
 ## Current state
 
 - `main` is at the merge of PR #1 — walking skeleton + all infra, **no auth**.
-- `dev` is ahead with the architecture decisions (ADR-0008) and agent rules.
-- **PR #2** (`feature/02-google-login → dev`) is **open and not mergeable yet**.
+- `dev` carries the architecture decisions (ADR-0008) and the agent rules.
+- **PR #2** (`feature/02-google-login → dev`) is **green and mergeable** — the
+  ADR-0008 restructure landed on it (head `b34da95`). It is waiting on a human
+  review + merge. Every review finding below is closed.
 
 ### Tickets
 
 | # | Title | Status |
 | --- | --- | --- |
 | 01 | Walking skeleton | done |
-| 02 | Google login | in review (PR #2) — needs the restructure below |
+| 02 | Google login | in review — PR #2 green, ready to merge |
 | 03–10 | Maps job, enrichment, Brave source, Lead Pool, quota, cancel/reaper, xlsx export | not started |
 | 11 | GitHub repo + push | done |
 | 12 | Deploy API to Render | done |
-| 13 | Deploy SPA to Vercel | in progress — confirm prod SPA reaches prod API now PR #1 is merged |
+| 13 | Deploy SPA to Vercel | done |
 | 14 | Explicit CI steps | done |
 | 15 | Local Docker Compose env | not started |
 | 16 | Migrations on deploy | not started (low priority) |
 | 17 | OpenAPI docs via @nestjs/swagger | not started |
 
-## The immediate next task: restructure PR #2 to ADR-0008
+## What PR #2 now looks like
 
-The API architecture was designed but **not yet built**. `feature/02-google-login`
-still has the old flat `auth/` + `db/` layout. One pass on that branch:
+`apps/api` is built to ADR-0008. The old flat `auth/` + `db/` + `health/` are gone:
 
-1. Merge `dev` in. Brings the `@olc/types` build fix and ADR-0008. Two known
-   conflicts: `apps/api/package.json` (scripts block) and
-   `.scratch/.../02-google-login.md` (Status line — resolve to "done").
-2. `auth/` + `db/` → `modules/identity/` + `shared/db/`. Split `AuthService`
-   into a `SignInWithGoogle` use-case, a tokens module, and a `Users` port with
-   a Drizzle adapter.
-3. `shared/config/` using **`@nestjs/config`** (`registerAs` + `ConfigType`, not
-   stringly-typed `get()`). This closes the outstanding blocker: nothing
-   currently loads `apps/api/.env*`, so the API cannot boot locally.
-4. `health` via **`@nestjs/terminus`**, liveness only (no DB indicator — see
-   ADR-0008 for why).
-5. All specs move to `test/unit/<module>/<layer>/<name>.<kind>.spec.ts`; delete
-   the health spec; split the vitest configs; add `test:integration`.
-6. Verify green (`lint`, `typecheck`, `test`, `build`), push — PR #2 updates in
-   place.
+| Now | Holds |
+| --- | --- |
+| `src/modules/identity/domain/` | `User`, `GoogleIdentity`, the pure `profileHasChanged` rule, and the `Users` port (`USERS` token) |
+| `src/modules/identity/application/` | `SignInWithGoogle` use-case, `TokensService` |
+| `src/modules/identity/api/` | `auth.controller`, `google.strategy`, `jwt-auth.guard`, `@CurrentUser()` |
+| `src/modules/identity/infra/` | `drizzle-users.repository`, module-owned `identity.schema.ts` |
+| `src/modules/health/` | Terminus liveness only, `check([])`, no DB indicator |
+| `src/shared/config/` | `@nestjs/config`, four `registerAs` namespaces read as `ConfigType`, `env.validation.ts` as the `validate` hook |
+| `src/shared/db/` | `db.module` (drains the pool on `OnApplicationShutdown`), `migrate.ts` |
+| `src/schema.ts` | composition-root merge of the module-owned Drizzle schemas; `drizzle.config.ts` globs `src/modules/**/*.schema.ts` |
+| `test/unit/<module>/<layer>/` | 23 unit tests, up from 9 |
 
-### Review findings on PR #2 still to address
+Verified: `shared/` imports nothing from `modules/`, `domain/` imports nothing
+from `infra/`, and there is no stringly-typed `ConfigService.get()` anywhere.
+New first-party deps, both named in ADR-0008: `@nestjs/config`,
+`@nestjs/terminus`.
 
-- **Blocker** — no `.env` loading (fixed by step 3 above).
-- `JWT_SECRET` is never checked for being non-empty.
-- Token is handed to the SPA in a URL fragment; documented tradeoff, a POST code
-  exchange is the hardening path.
-- No test for `GoogleStrategy.validate`'s no-email branch, or the controller.
-- The `makeDb` thenable mock in `auth.service.spec.ts` dies with step 2.
+### Review findings on PR #2 — all closed
+
+- ~~**Blocker** — no `.env` loading~~ → `shared/config` loads
+  `.env.<NODE_ENV>.local` then `.env`. The API boots locally again.
+- ~~`JWT_SECRET` never checked for non-empty~~ → `env.validation.ts` requires
+  every secret non-blank, `JWT_SECRET` ≥16 chars, `PORT` a positive integer, and
+  reports all problems at once at boot.
+- ~~No test for `GoogleStrategy.validate`'s no-email branch, or the controller~~
+  → both covered, plus the displayName fallback and the `GET /me` path.
+- ~~The `makeDb` thenable mock~~ → replaced by an in-memory `Users` fake.
+- **Still open, deliberately:** the token is handed to the SPA in a URL fragment.
+  A POST code exchange is the hardening path — **it wants its own ticket**, it
+  was left out of PR #2 on purpose.
+
+### Worth a reviewer's eye on PR #2
+
+- `apps/api/tsconfig.spec.json` is new. `tsconfig.json` still drives `nest build`
+  (`include: ["src"]`); `typecheck` now also runs the spec project so `test/` is
+  typechecked.
+- `db:migrate` uses Node's own `--env-file-if-exists=.env.${NODE_ENV:-development}.local`
+  — no dotenv dependency, but POSIX-shell only.
+- `TokensService` sits in `application/` rather than behind a `domain/` port with
+  an `infra/` JWT adapter. One implementation did not seem to justify the
+  ceremony; easy to invert later.
+- `JwtAuthGuard` kept its name.
+
+## Next steps
+
+1. Review and merge **PR #2** into `dev`.
+2. Do the human actions below — auth cannot actually run without them.
+3. Then ticket 03 (Maps source job backend) is the next implementation ticket;
+   15 and 17 are independent and can go any time.
+4. Open a ticket for the POST code-exchange token hardening.
 
 ## Outstanding human actions
 
-1. Confirm the prod SPA now reaches the prod API (ticket 13's last box).
-2. Before auth can actually run: create the **Google OAuth app** (scopes
-   `openid email profile`), set `JWT_SECRET`, `GOOGLE_*`, `WEB_APP_URL` on both
-   Render services, and run `pnpm --filter @olc/api db:migrate` per environment.
-   Neon databases and their env vars are already done.
-3. Optional tidy: align `leadCollect-Dev`'s Render build/start commands with
+1. Before auth can run: create the **Google OAuth app** (scopes
+   `openid email profile`), set `JWT_SECRET` (≥16 chars now, or the API refuses
+   to boot), `GOOGLE_*` and `WEB_APP_URL` on both Render services, and run
+   `pnpm --filter @olc/api db:migrate` per environment. Neon databases and their
+   env vars are already done.
+2. Optional tidy: align `leadCollect-Dev`'s Render build/start commands with
    prod's (add `corepack enable`, use `&&` not `;`).
+3. Two stale agent worktrees under `.claude/worktrees/` still hold
+   `feature/02-google-login` checked out at old commits
+   (`agent-a38fb8837fc74fe8b`, `agent-ac228d1989b458fd6`). Prune them:
+   `git worktree remove --force <path>` then `git worktree prune`.
 
 Local env files are `apps/api/.env.development.local` and
 `.env.production.local` (gitignored). The dev one points at Neon dev for now and
