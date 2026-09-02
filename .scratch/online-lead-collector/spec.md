@@ -28,6 +28,7 @@ decisions this breakdown assumes.
 | 14 | Make CI steps explicit | 01 |
 | 15 | Local Docker Compose environment (clean-build audit) | 01 |
 | 16 | Run database migrations on deploy | 02 |
+| 17 | Auto-generated API docs with @nestjs/swagger | 02 |
 
 Critical path: 01 → 02 → 03 → 05 → 06 → 07 → 08. Tickets 04, 09, 10 form a
 parallel frontend track once 03 lands. Tickets 11–13 are human infra setup that

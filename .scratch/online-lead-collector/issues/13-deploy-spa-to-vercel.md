@@ -7,7 +7,7 @@ pointed at its own Render API and each allowed by that API's `CORS_ORIGINS`.
 
 **Blocked by:** 12
 
-**Status:** in-progress (dev + preview verified; prod verify blocked on PR #1)
+**Status:** in-progress (dev + preview verified; PR #1 now merged — confirm prod SPA reaches prod API)
 
 ## Vercel project
 
