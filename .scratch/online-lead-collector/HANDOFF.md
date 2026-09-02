@@ -29,8 +29,10 @@ Two isolated environments, each tracking a branch (ADR-0007):
 
 | Env | API (Render) | branch | SPA (Vercel) | DB (Neon) |
 | --- | --- | --- | --- | --- |
-| dev | `leadCollect-Dev` | `dev` | preview deploys | dev database |
-| prod | `leadCollect-Prod` | `main` | production | prod database |
+| dev | `leadCollect-Dev` — https://leadcollect-dev.onrender.com | `dev` | preview deploys | dev database |
+| prod | `leadCollect-Prod` — https://leadcollect-prod.onrender.com | `main` | production | prod database |
+
+Render serves apps from `onrender.com`; `render.com` is the dashboard.
 
 Both hosts auto-deploy, gated on CI: Render waits for the GitHub check; Vercel's
 push-deploys are disabled for `main`/`dev` in `apps/web/vercel.json` and fired
@@ -131,28 +133,38 @@ New first-party deps, both named in ADR-0008: `@nestjs/config`,
 
 ## Outstanding human actions
 
-1. **Google OAuth client** — created, and the Render env vars are set on both
-   services. Still missing: the **Authorized redirect URIs**. The route is
-   `GET /auth/google/callback`, so register one per environment —
-   `http://localhost:3000/auth/google/callback` and
-   `https://<render-host>/auth/google/callback` for dev and prod. Google matches
-   exactly (scheme, host, port, path, no trailing slash), and each service's
-   `GOOGLE_CALLBACK_URL` must be byte-identical to its entry.
+1. **Google OAuth client** — created, scopes verified correct
+   (`openid email profile`), and the Render env vars are set. Two things left:
+   - Register the **Authorized redirect URIs**. Google matches exactly — scheme,
+     host, port, path, no trailing slash:
+     ```
+     http://localhost:3000/auth/google/callback
+     https://leadcollect-dev.onrender.com/auth/google/callback
+     https://leadcollect-prod.onrender.com/auth/google/callback
+     ```
+   - **Fix `GOOGLE_CALLBACK_URL` on `leadCollect-Dev`.** As of 2026-09-02 the dev
+     service still redirects to Google with
+     `redirect_uri=http://localhost:3000/auth/google/callback`, so a sign-in on
+     dev bounces the browser back to localhost. Check prod's too. Each service's
+     value must be byte-identical to its URI above.
+
+   To re-check without a browser:
+   `curl -sD - https://leadcollect-dev.onrender.com/auth/google -o /dev/null | grep -i location`
 2. **Migrate the prod database**: `NODE_ENV=production pnpm --filter @olc/api
    db:migrate`. Dev is already done.
-3. **The Render hostnames are recorded nowhere in this repo** — ticket 12 left
-   them as `<service>.onrender.com` and the real values live only in Vercel's
-   `VITE_API_URL`. Write them into ticket 12's notes.
-4. **Known rough edge:** `WEB_APP_URL` is set with a trailing slash on both
+3. **Known rough edge:** `WEB_APP_URL` is set with a trailing slash on both
    services, and `appConfig` does not normalise it, so the sign-in redirect
    builds `https://host//#token=…` (double slash). Either drop the slash from
    the env var or make `app.config.ts` strip it. `CORS_ORIGINS` must stay
    slash-free either way — a browser `Origin` header never has one.
-5. `JWT_SECRET` must now be **at least 16 characters** or the API refuses to
-   boot. Worth confirming on both Render services.
-6. Optional tidy: align `leadCollect-Dev`'s Render build/start commands with
+4. `JWT_SECRET` is **at least 16 characters** or the API refuses to
+   now required to be at least 16 characters. Confirmed satisfied on dev — the
+   service booted after the merge and `/health` answers in Terminus's shape
+   (`{"status":"ok","info":{},...}`) rather than the walking skeleton's
+   `{"status":"ok"}`. Prod still runs the old code, so it is unverified there.
+5. Optional tidy: align `leadCollect-Dev`'s Render build/start commands with
    prod's (add `corepack enable`, use `&&` not `;`).
-7. Two stale agent worktrees under `.claude/worktrees/` still hold
+6. Two stale agent worktrees under `.claude/worktrees/` still hold
    `feature/02-google-login` checked out at old commits
    (`agent-a38fb8837fc74fe8b`, `agent-ac228d1989b458fd6`). Prune them:
    `git worktree remove --force <path>` then `git worktree prune`.
