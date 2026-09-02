@@ -16,24 +16,64 @@ export function clearToken(): void {
   localStorage.removeItem(TOKEN_KEY);
 }
 
+/** Thrown by every API call that comes back 401. */
+export class UnauthorizedError extends Error {
+  constructor() {
+    super("unauthorized");
+    this.name = "UnauthorizedError";
+  }
+}
+
+type UnauthorizedHandler = () => void;
+
+let unauthorizedHandler: UnauthorizedHandler | null = null;
+
+/**
+ * Registers the single place that reacts to a 401 from any API call. The token
+ * is already cleared by the time the handler runs, so the handler only has to
+ * move the UI back to signed-out. Returns an unsubscribe function.
+ */
+export function onUnauthorized(handler: UnauthorizedHandler): () => void {
+  unauthorizedHandler = handler;
+  return () => {
+    if (unauthorizedHandler === handler) unauthorizedHandler = null;
+  };
+}
+
 /** URL that starts the Google sign-in round trip. */
 export const googleLoginUrl = `${API_URL}/auth/google`;
 
-export async function getHealth(): Promise<HealthResponse> {
-  const res = await fetch(`${API_URL}/health`);
-  if (!res.ok) throw new Error(`health check failed: ${res.status}`);
-  return (await res.json()) as HealthResponse;
+/**
+ * Every API call goes through here so a 401 is handled in one place: the token
+ * is dropped and the registered handler is told about it.
+ */
+export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const token = getToken();
+  const res = await fetch(`${API_URL}${path}`, {
+    ...init,
+    headers: {
+      ...(init.headers as Record<string, string> | undefined),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (res.status === 401) {
+    clearToken();
+    unauthorizedHandler?.();
+    throw new UnauthorizedError();
+  }
+  if (!res.ok) throw new Error(`${path} failed: ${res.status}`);
+
+  return (await res.json()) as T;
 }
 
-/** Fetches the signed-in user. Throws `"unauthorized"` on a 401. */
-export async function getMe(): Promise<MeResponse> {
-  const token = getToken();
-  const res = await fetch(`${API_URL}/me`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
-  if (res.status === 401) throw new Error("unauthorized");
-  if (!res.ok) throw new Error(`/me failed: ${res.status}`);
-  return (await res.json()) as MeResponse;
+export function getHealth(): Promise<HealthResponse> {
+  return apiFetch<HealthResponse>("/health");
+}
+
+/** Fetches the signed-in user. Throws `UnauthorizedError` on a 401. */
+export function getMe(): Promise<MeResponse> {
+  return apiFetch<MeResponse>("/me");
 }
 
 /**
