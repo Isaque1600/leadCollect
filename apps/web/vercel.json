@@ -4,5 +4,11 @@
   "buildCommand": "pnpm --filter @olc/web build",
   "outputDirectory": "dist",
   "installCommand": "pnpm install --frozen-lockfile",
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
+  "git": {
+    "deploymentEnabled": {
+      "main": false,
+      "dev": false
+    }
+  }
 }
