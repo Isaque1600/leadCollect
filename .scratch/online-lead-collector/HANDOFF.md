@@ -140,21 +140,17 @@ New first-party deps, both named in ADR-0008: `@nestjs/config`,
 
 Nothing blocking — auth is live in both environments. What is left is tidy-up:
 
-1. **`WEB_APP_URL` has a trailing slash** on both Render services and
-   `app.config.ts` does not normalise it, so the sign-in redirect builds
-   `https://host//#token=…`. It works, but it is luck. Either drop the slash or
-   strip it in config. `CORS_ORIGINS` must stay slash-free regardless — a
-   browser `Origin` header never has one.
-2. **Stale copies of the Vercel deploy hooks** live in the `Preview` and
-   `Production` GitHub *environments* from the first attempt at wiring them.
-   Nothing reads them (the `deploy-web` job declares no `environment:`, which is
-   exactly why they did not work). Duplicate hook copies are a rotation hazard —
-   delete them. Leave the `copilot` environment alone.
-3. **Two stale agent worktrees** under `.claude/worktrees/`
+1. **Two stale agent worktrees** under `.claude/worktrees/`
    (`agent-a38fb8837fc74fe8b`, `agent-ac228d1989b458fd6`) still hold old
    checkouts. `git worktree remove --force <path>` then `git worktree prune`.
-4. Optional tidy: align `leadCollect-Dev`'s Render build/start commands with
+2. Optional tidy: align `leadCollect-Dev`'s Render build/start commands with
    prod's (add `corepack enable`, use `&&` not `;`).
+
+Done 2026-09-02: the trailing slash on `WEB_APP_URL` (fixed on both Render
+services) and the duplicate deploy-hook copies in the `Preview` / `Production`
+GitHub environments (deleted). Note `app.config.ts` still does not normalise a
+trailing slash, so the env var is the only thing keeping the sign-in redirect
+correct — a one-line strip there would make it structural.
 
 ### Gotchas learned the hard way (2026-09-02)
 
