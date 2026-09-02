@@ -13,11 +13,16 @@ each check actually takes. Revisit only when a single check exceeds ~2-3 minutes
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** done (branch `ticket-14-ci-steps`)
 
-- [ ] `ci.yml` has distinct steps: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, each with a clear `name`
-- [ ] `@olc/types` is built before `typecheck` (its consumers need the declaration output)
-- [ ] Steps run in one job; a later step failing does not hide an earlier failure (default fail-fast is fine — first failure is the report)
-- [ ] pnpm store caching still enabled
-- [ ] Triggers unchanged: pull requests, and pushes to `main`
-- [ ] Root `pnpm lint` / `typecheck` / `test` / `build` unchanged for local use
+- [x] `ci.yml` has distinct steps: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, each with a clear `name`
+- [x] `@olc/types` is built before `typecheck` (its consumers need the declaration output) — "Build shared types" step
+- [x] Steps run in one job; default fail-fast means the first failing step is the report
+- [x] pnpm store caching still enabled (`cache: pnpm` on setup-node)
+- [x] Triggers unchanged: pull requests, and pushes to `main`
+- [x] Root `pnpm lint` / `typecheck` / `test` / `build` unchanged for local use
+
+## Notes
+
+- Full sequence (`install → build types → lint → typecheck → test → build`) verified green locally.
+- Added a `Build` step that runs `pnpm build` (`nest build` + `vite build`) — not in the original single job.
