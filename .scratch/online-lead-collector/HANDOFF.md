@@ -51,17 +51,20 @@ secrets (`VERCEL_DEPLOY_HOOK_MAIN` / `_DEV`).
 ## Current state
 
 - `main` is at the merge of PR #1 — walking skeleton + all infra, **no auth**.
-- `dev` carries the architecture decisions (ADR-0008) and the agent rules.
-- **PR #2** (`feature/02-google-login → dev`) is **green and mergeable** — the
-  ADR-0008 restructure landed on it (head `b34da95`). It is waiting on a human
-  review + merge. Every review finding below is closed.
+- **`dev` has auth.** PR #2 merged 2026-09-02 (`c01721a`), carrying Google
+  sign-in *and* the ADR-0008 restructure of `apps/api`. `dev` is therefore well
+  ahead of `main`; the next `dev → main` PR is a big one.
+- Render's `leadCollect-Dev` auto-deploys from `dev`, so the dev API is the
+  first environment to run the new config validation.
+- The dev Neon database has its `users` table (migration run by hand,
+  2026-09-02). **Prod has not been migrated yet.**
 
 ### Tickets
 
 | # | Title | Status |
 | --- | --- | --- |
 | 01 | Walking skeleton | done |
-| 02 | Google login | in review — PR #2 green, ready to merge |
+| 02 | Google login | done (merged, PR #2) |
 | 03–10 | Maps job, enrichment, Brave source, Lead Pool, quota, cancel/reaper, xlsx export | not started |
 | 11 | GitHub repo + push | done |
 | 12 | Deploy API to Render | done |
@@ -71,7 +74,7 @@ secrets (`VERCEL_DEPLOY_HOOK_MAIN` / `_DEV`).
 | 16 | Migrations on deploy | not started (low priority) |
 | 17 | OpenAPI docs via @nestjs/swagger | not started |
 
-## What PR #2 now looks like
+## What the API looks like now (landed in PR #2)
 
 `apps/api` is built to ADR-0008. The old flat `auth/` + `db/` + `health/` are gone:
 
@@ -92,7 +95,7 @@ from `infra/`, and there is no stringly-typed `ConfigService.get()` anywhere.
 New first-party deps, both named in ADR-0008: `@nestjs/config`,
 `@nestjs/terminus`.
 
-### Review findings on PR #2 — all closed
+### Review findings from PR #2 — all closed
 
 - ~~**Blocker** — no `.env` loading~~ → `shared/config` loads
   `.env.<NODE_ENV>.local` then `.env`. The API boots locally again.
@@ -106,7 +109,7 @@ New first-party deps, both named in ADR-0008: `@nestjs/config`,
   A POST code exchange is the hardening path — **it wants its own ticket**, it
   was left out of PR #2 on purpose.
 
-### Worth a reviewer's eye on PR #2
+### Worth knowing about the merged code
 
 - `apps/api/tsconfig.spec.json` is new. `tsconfig.json` still drives `nest build`
   (`include: ["src"]`); `typecheck` now also runs the spec project so `test/` is
@@ -120,22 +123,36 @@ New first-party deps, both named in ADR-0008: `@nestjs/config`,
 
 ## Next steps
 
-1. Review and merge **PR #2** into `dev`.
-2. Do the human actions below — auth cannot actually run without them.
-3. Then ticket 03 (Maps source job backend) is the next implementation ticket;
+1. Finish wiring sign-in end to end (see the human actions below) and click
+   through it on the dev environment.
+2. Then ticket 03 (Maps source job backend) is the next implementation ticket;
    15 and 17 are independent and can go any time.
-4. Open a ticket for the POST code-exchange token hardening.
+3. Open a ticket for the POST code-exchange token hardening.
 
 ## Outstanding human actions
 
-1. Before auth can run: create the **Google OAuth app** (scopes
-   `openid email profile`), set `JWT_SECRET` (≥16 chars now, or the API refuses
-   to boot), `GOOGLE_*` and `WEB_APP_URL` on both Render services, and run
-   `pnpm --filter @olc/api db:migrate` per environment. Neon databases and their
-   env vars are already done.
-2. Optional tidy: align `leadCollect-Dev`'s Render build/start commands with
+1. **Google OAuth client** — created, and the Render env vars are set on both
+   services. Still missing: the **Authorized redirect URIs**. The route is
+   `GET /auth/google/callback`, so register one per environment —
+   `http://localhost:3000/auth/google/callback` and
+   `https://<render-host>/auth/google/callback` for dev and prod. Google matches
+   exactly (scheme, host, port, path, no trailing slash), and each service's
+   `GOOGLE_CALLBACK_URL` must be byte-identical to its entry.
+2. **Migrate the prod database**: `NODE_ENV=production pnpm --filter @olc/api
+   db:migrate`. Dev is already done.
+3. **The Render hostnames are recorded nowhere in this repo** — ticket 12 left
+   them as `<service>.onrender.com` and the real values live only in Vercel's
+   `VITE_API_URL`. Write them into ticket 12's notes.
+4. **Known rough edge:** `WEB_APP_URL` is set with a trailing slash on both
+   services, and `appConfig` does not normalise it, so the sign-in redirect
+   builds `https://host//#token=…` (double slash). Either drop the slash from
+   the env var or make `app.config.ts` strip it. `CORS_ORIGINS` must stay
+   slash-free either way — a browser `Origin` header never has one.
+5. `JWT_SECRET` must now be **at least 16 characters** or the API refuses to
+   boot. Worth confirming on both Render services.
+6. Optional tidy: align `leadCollect-Dev`'s Render build/start commands with
    prod's (add `corepack enable`, use `&&` not `;`).
-3. Two stale agent worktrees under `.claude/worktrees/` still hold
+7. Two stale agent worktrees under `.claude/worktrees/` still hold
    `feature/02-google-login` checked out at old commits
    (`agent-a38fb8837fc74fe8b`, `agent-ac228d1989b458fd6`). Prune them:
    `git worktree remove --force <path>` then `git worktree prune`.

@@ -10,7 +10,7 @@ on API calls, and shows the signed-in user's email with a logout button.
 
 **Blocked by:** 01
 
-**Status:** done (branch feature/02-google-login)
+**Status:** done (merged into `dev` via PR #2, 2026-09-02)
 
 - [x] Drizzle + `postgres.js` connected to Neon's pooled URL; `drizzle-kit` migrations run against the direct URL
 - [x] `users` table created via migration
