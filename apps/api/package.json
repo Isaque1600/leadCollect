@@ -8,13 +8,21 @@
     "start": "node dist/main.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "node --import tsx src/db/migrate.ts"
   },
   "dependencies": {
     "@nestjs/common": "11.0.1",
     "@nestjs/core": "11.0.1",
+    "@nestjs/jwt": "11.0.0",
+    "@nestjs/passport": "11.0.5",
     "@nestjs/platform-express": "11.0.1",
     "@olc/types": "workspace:*",
+    "drizzle-orm": "0.38.3",
+    "passport": "0.7.0",
+    "passport-google-oauth20": "2.0.0",
+    "postgres": "3.4.5",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.1"
   },
@@ -25,6 +33,9 @@
     "@swc/core": "1.10.4",
     "@types/express": "5.0.0",
     "@types/node": "22.10.2",
+    "@types/passport-google-oauth20": "2.0.16",
+    "drizzle-kit": "0.30.1",
+    "tsx": "4.19.2",
     "typescript": "5.7.2",
     "unplugin-swc": "1.5.1",
     "vitest": "3.0.2"
