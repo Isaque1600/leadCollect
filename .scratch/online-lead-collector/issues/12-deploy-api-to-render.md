@@ -5,7 +5,7 @@
 
 **Blocked by:** 11
 
-**Status:** ready-for-human
+**Status:** done
 
 - [x] Render account connected to the GitHub repo
 - [x] New **Blueprint** created from `render.yaml` (it defines the `olc-api` web service, free plan)

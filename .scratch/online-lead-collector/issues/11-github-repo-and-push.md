@@ -6,7 +6,7 @@ confirm the `CI` workflow runs and passes on the pushed commit.
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] GitHub repo created (private recommended)
 - [x] `git remote add origin <url>` and `git push -u origin main`

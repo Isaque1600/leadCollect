@@ -9,7 +9,7 @@ monorepo, and the deployed SPA successfully reaches the deployed API's `/health`
 
 **Blocked by:** None (can start immediately).
 
-**Status:** in-progress (code done; deployment steps need the user)
+**Status:** done
 
 - [x] `pnpm-workspace.yaml` with `apps/*` and `packages/*`; root scripts for lint, typecheck, test
 - [x] `apps/api` is a running NestJS app with `GET /health` returning `{ status: "ok" }` (verified locally)
