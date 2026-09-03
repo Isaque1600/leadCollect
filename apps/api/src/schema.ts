@@ -1,4 +1,6 @@
 import * as identity from "./modules/identity/infra/identity.schema";
+import * as jobs from "./modules/jobs/infra/jobs.schema";
+import * as leads from "./modules/leads/infra/leads.schema";
 
 /**
  * The composition root's view of the database: every module's own schema file,
@@ -8,6 +10,8 @@ import * as identity from "./modules/identity/infra/identity.schema";
  */
 export const schema = {
   ...identity,
+  ...leads,
+  ...jobs,
 };
 
 export type Schema = typeof schema;

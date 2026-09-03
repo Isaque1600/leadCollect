@@ -19,6 +19,7 @@ export interface Env {
   GOOGLE_CALLBACK_URL: string;
   JWT_SECRET: string;
   WEB_APP_URL: string;
+  GOOGLE_PLACES_API_KEY: string;
 }
 
 /** Variables with no sensible default — absent or blank is a boot failure. */
@@ -29,6 +30,7 @@ const REQUIRED = [
   "GOOGLE_CALLBACK_URL",
   "JWT_SECRET",
   "WEB_APP_URL",
+  "GOOGLE_PLACES_API_KEY",
 ] as const;
 
 /** A signing secret shorter than this is not worth calling a secret. */
@@ -69,5 +71,6 @@ export function validateEnv(raw: Record<string, unknown>): Env {
     GOOGLE_CALLBACK_URL: read("GOOGLE_CALLBACK_URL"),
     JWT_SECRET: jwtSecret,
     WEB_APP_URL: read("WEB_APP_URL"),
+    GOOGLE_PLACES_API_KEY: read("GOOGLE_PLACES_API_KEY"),
   };
 }

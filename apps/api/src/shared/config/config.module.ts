@@ -5,6 +5,7 @@ import { databaseConfig } from "./database.config";
 import { validateEnv } from "./env.validation";
 import { googleConfig } from "./google.config";
 import { jwtConfig } from "./jwt.config";
+import { placesConfig } from "./places.config";
 
 /**
  * The one place that reads `process.env`. Wraps `@nestjs/config` so the rest of
@@ -23,7 +24,7 @@ import { jwtConfig } from "./jwt.config";
       isGlobal: true,
       cache: true,
       envFilePath: [`.env.${process.env.NODE_ENV ?? "development"}.local`, ".env"],
-      load: [appConfig, databaseConfig, googleConfig, jwtConfig],
+      load: [appConfig, databaseConfig, googleConfig, jwtConfig, placesConfig],
       validate: validateEnv,
     }),
   ],

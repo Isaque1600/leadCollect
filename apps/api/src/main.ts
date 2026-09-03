@@ -1,4 +1,5 @@
 import "reflect-metadata";
+import { ValidationPipe } from "@nestjs/common";
 import { ConfigType } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
@@ -9,6 +10,15 @@ async function bootstrap() {
 
   // Typed config, not process.env — `shared/config` validated it at boot.
   const config = app.get<ConfigType<typeof appConfig>>(appConfig.KEY);
+
+  // Nest's own pipe over class-validator decorators on the request DTOs, rather
+  // than hand-written checks in each controller. `whitelist` drops undeclared
+  // properties, `forbidNonWhitelisted` turns them into a 400 so a typo in the
+  // SPA is loud, and `transform` gives handlers real DTO instances with the
+  // declared types (`"20"` arrives as `20`).
+  app.useGlobalPipes(
+    new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
+  );
 
   app.enableCors({
     origin: config.corsOrigins,
