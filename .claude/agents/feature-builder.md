@@ -56,7 +56,15 @@ agent's in-progress branch instead of `dev` until the run finishes. Caught
    `Status: done (branch feature/NN-<slug>)`. Add a short `## Notes` section if
    anything is worth knowing (decisions, follow-ups, skipped boxes with reasons).
 
-6. **Commit** on the feature branch. Message: a concise summary line referencing
+6. **Update `ARCHITECTURE.md`** (repo root) if this ticket changed what it
+   describes: a new route, a new module, a new SPA page/route, a changed
+   request/auth flow, a changed deploy/CI shape. It documents what's actually
+   built, not a target design — if reviewing this PR would make someone's
+   mental map of the system wrong without an edit here, make the edit. Skip it
+   for tickets that don't change that shape (a pure refactor, a config tweak
+   already covered by an existing section).
+
+7. **Commit** on the feature branch. Message: a concise summary line referencing
    the ticket, a body explaining the what and why, and these trailers:
 
    ```
@@ -64,7 +72,7 @@ agent's in-progress branch instead of `dev` until the run finishes. Caught
    Claude-Session: <the Claude-Session URL from the parent session>
    ```
 
-7. **Push and open the PR into `dev`** (never `main`):
+8. **Push and open the PR into `dev`** (never `main`):
 
    ```bash
    git push -u origin feature/NN-<short-slug>
@@ -77,7 +85,7 @@ agent's in-progress branch instead of `dev` until the run finishes. Caught
 
    Pushing feature branches is allowed; pushing `main` is blocked by design.
 
-8. **Report back**: the branch name, the PR URL, CI status if available, which
+9. **Report back**: the branch name, the PR URL, CI status if available, which
    acceptance criteria are met, and anything the reviewer should look at or that
    was left out of scope. Do not merge the PR — the user reviews and merges
    `feature → dev`, then later opens `dev → main` themselves.
