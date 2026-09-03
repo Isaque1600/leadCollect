@@ -9,8 +9,8 @@ import type { SourceLabel } from "@olc/types";
  * English — only the `source` *value* stays Portuguese, because that is what the
  * `fonte` column of the export shows (CONTEXT.md: Source).
  *
- * `email` is nullable and stays null until Enrichment (ticket 05) fills it: a
- * Maps Source Lead carries only what the Places API returns.
+ * `email` is nullable and stays null until Enrichment fills it: a Maps Source
+ * Lead carries only what the Places API returns until its website is visited.
  */
 export interface Lead {
   id: string;
@@ -29,6 +29,11 @@ export interface Lead {
   sourceUrl: string | null;
   /** `fonte`. */
   source: SourceLabel;
+  /**
+   * When Enrichment last visited this Lead's website. Null means never
+   * enriched; more than 30 days ago makes this a Stale Lead (CONTEXT.md).
+   */
+  enrichedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -38,7 +43,18 @@ export interface Lead {
  * the database owns. Upserting one of these on the Lead Identity is how the pool
  * stays deduplicated.
  */
-export type LeadDraft = Omit<Lead, "id" | "createdAt" | "updatedAt">;
+export type LeadDraft = Omit<Lead, "id" | "createdAt" | "updatedAt" | "enrichedAt">;
+
+/**
+ * What Enrichment writes back onto a pooled Lead. `enrichedAt` is stamped even
+ * when the visit found nothing, so an unreachable site is not re-visited by
+ * every Job for the next 30 days.
+ */
+export interface EnrichmentResult {
+  email: string | null;
+  phone: string | null;
+  enrichedAt: Date;
+}
 
 /**
  * The link between a user and a Lead in the pool — a Collected Lead

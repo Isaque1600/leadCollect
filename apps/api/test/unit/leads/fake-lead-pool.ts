@@ -1,4 +1,9 @@
-import type { CollectedLead, Lead, LeadDraft } from "../../../src/modules/leads/domain/lead";
+import type {
+  CollectedLead,
+  EnrichmentResult,
+  Lead,
+  LeadDraft,
+} from "../../../src/modules/leads/domain/lead";
 import type { LeadPool } from "../../../src/modules/leads/domain/lead-pool.port";
 
 /**
@@ -13,6 +18,7 @@ export class FakeLeadPool implements LeadPool {
   readonly collected: CollectedLead[] = [];
   upsertCalls = 0;
   collectCalls = 0;
+  enrichmentsRecorded = 0;
 
   async upsertByPlaceId(draft: LeadDraft & { placeId: string }): Promise<Lead> {
     this.upsertCalls += 1;
@@ -23,7 +29,9 @@ export class FakeLeadPool implements LeadPool {
       const updated: Lead = {
         ...this.leads[index]!,
         ...draft,
+        // Enrichment owns these two; the upsert leaves them where they were.
         email: this.leads[index]!.email,
+        enrichedAt: this.leads[index]!.enrichedAt,
         updatedAt: new Date("2026-02-01T00:00:00Z"),
       };
       this.leads[index] = updated;
@@ -33,11 +41,23 @@ export class FakeLeadPool implements LeadPool {
     const created: Lead = {
       id: `lead-${this.leads.length + 1}`,
       ...draft,
+      enrichedAt: null,
       createdAt: new Date("2026-01-01T00:00:00Z"),
       updatedAt: new Date("2026-01-01T00:00:00Z"),
     };
     this.leads.push(created);
     return created;
+  }
+
+  async recordEnrichment(leadId: string, result: EnrichmentResult): Promise<Lead | null> {
+    this.enrichmentsRecorded += 1;
+    const index = this.leads.findIndex((lead) => lead.id === leadId);
+    if (index < 0) {
+      return null;
+    }
+    const updated: Lead = { ...this.leads[index]!, ...result };
+    this.leads[index] = updated;
+    return updated;
   }
 
   async collect(userId: string, leadId: string): Promise<CollectedLead> {
