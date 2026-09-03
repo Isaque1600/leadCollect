@@ -8,7 +8,7 @@ many Leads were collected. Errors surface as a message.
 
 **Blocked by:** 03, 18
 
-**Status:** done (branch `feature/04-maps-source-job-frontend`)
+**Status:** done (merged into `dev` via PR #7, 2026-09-03)
 
 - [x] Search form with fields: business type, city, state, max results per source
 - [x] Submitting calls `POST /jobs` and navigates to `/jobs/:id` (the routing and shell come from ticket 18)
