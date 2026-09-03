@@ -5,6 +5,14 @@
 # them under this blueprint, either rename the existing services to match the
 # names below, or delete them and re-sync the blueprint. Ticket 13 covers the
 # reconciliation.
+#
+# NOTE: Auto-Deploy's "only deploy after CI checks pass" option must stay OFF
+# on both services. It reads GitHub's classic commit-status API, but this
+# repo's CI (.github/workflows/ci.yml) is a GitHub Actions workflow, which
+# reports through the separate Checks API. Render never sees a passing check,
+# so with that option on, dev/main pushes silently stop auto-deploying even
+# though CI is green. main/dev only move via merged, CI-checked PRs anyway
+# (see CLAUDE.md's git workflow), so plain Auto-Deploy-on-push is sufficient.
 
 services:
   # --- production: tracks main ---
