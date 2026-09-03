@@ -1,0 +1,52 @@
+# Local stand-in for the deploy environment (ADR-0007): the API built the way
+# Render builds it, plus a Postgres container standing in for Neon.
+#
+#   cp apps/api/.env.example apps/api/.env      # then fill in the secrets
+#   docker compose up --build
+#   curl localhost:3000/health                  # {"status":"ok",...}
+#
+# `db` also publishes to localhost:5432, so migrations run on the host, not in
+# the (deliberately prod-pruned) api image:
+#   DATABASE_URL_DIRECT=postgresql://olc:olc@localhost:5432/olc \
+#     pnpm --filter @olc/api db:migrate
+#
+# The SPA is deliberately absent — it deploys to Vercel and runs on the host
+# with `pnpm --filter @olc/web dev`.
+
+services:
+  # Neon's local stand-in. Migrations and the app both talk to this one.
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: olc
+      POSTGRES_PASSWORD: olc
+      POSTGRES_DB: olc
+    ports:
+      - "5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      # `api` waits on this, so a first boot does not race initdb.
+      test: ["CMD-SHELL", "pg_isready -U olc -d olc"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  api:
+    build:
+      # Repo root: the lockfile and `packages/types` live above `apps/api`.
+      context: .
+      dockerfile: apps/api/Dockerfile
+    # Same file the host uses; `DATABASE_URL` there points at `db` (see
+    # .env.example). Not baked into the image — .dockerignore excludes it.
+    env_file:
+      - apps/api/.env
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+
+volumes:
+  db-data:
