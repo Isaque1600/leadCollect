@@ -1,0 +1,39 @@
+# Build context for apps/api/Dockerfile is the repo root (pnpm workspace).
+# Everything here stays out of the image so the build is a clean checkout:
+# no host node_modules, no stale dist/ or .tsbuildinfo, no secrets.
+
+# dependencies — the build stage installs from pnpm-lock.yaml instead
+node_modules
+.pnpm-store
+
+# builds — the build stage runs `pnpm --filter @olc/api build` itself
+dist
+build
+*.tsbuildinfo
+
+# secrets — compose passes env through `env_file`, never bakes it in
+.env
+.env.*
+!.env.example
+service_account.json
+
+# vcs / tooling
+.git
+.github
+.gitignore
+.dockerignore
+.claude
+.scratch
+.vscode
+.idea
+
+# test / coverage output
+coverage
+*.log
+
+# docs and the legacy Python CLI (ADR-0004) — not part of the API image
+docs
+legacy
+README.md
+CONTEXT.md
+docker-compose.yml
