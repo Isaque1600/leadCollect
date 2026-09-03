@@ -3,8 +3,12 @@
 #
 #   cp apps/api/.env.example apps/api/.env      # then fill in the secrets
 #   docker compose up --build
-#   docker compose run --rm api pnpm --filter @olc/api db:migrate
 #   curl localhost:3000/health                  # {"status":"ok",...}
+#
+# `db` also publishes to localhost:5432, so migrations run on the host, not in
+# the (deliberately prod-pruned) api image:
+#   DATABASE_URL_DIRECT=postgresql://olc:olc@localhost:5432/olc \
+#     pnpm --filter @olc/api db:migrate
 #
 # The SPA is deliberately absent — it deploys to Vercel and runs on the host
 # with `pnpm --filter @olc/web dev`.

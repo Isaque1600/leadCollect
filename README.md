@@ -35,14 +35,21 @@ stands in for Neon. The SPA stays on the host — it deploys to Vercel, not Rend
 ```bash
 cp apps/api/.env.example apps/api/.env   # DATABASE_URL=postgresql://olc:olc@db:5432/olc
 docker compose up --build                # db + api, api on :3000
-docker compose run --rm api pnpm --filter @olc/api db:migrate   # apply Drizzle migrations
 curl localhost:3000/health               # {"status":"ok",...}
 docker compose down                      # add -v to drop the database volume
 ```
 
-The database is also published on `localhost:5432`, so host tools (`psql`, a
-host-run `db:migrate` with `DATABASE_URL_DIRECT=postgresql://olc:olc@localhost:5432/olc`)
-reach the same data.
+The `api` image is prod-only (a second, filtered `pnpm install --prod` in the
+runtime stage — `pnpm prune --prod` was tried first but does not reliably keep
+workspace-package symlinks, see the Dockerfile comment), so it carries no
+`tsx`/`drizzle-kit` to run migrations with. `db` is also published on
+`localhost:5432` — run migrations from the host instead, against the same
+database:
+
+```bash
+DATABASE_URL_DIRECT=postgresql://olc:olc@localhost:5432/olc \
+  pnpm --filter @olc/api db:migrate
+```
 
 **`docker compose build` is the pre-deploy check.** Run it before opening a
 `dev → main` PR: it is the only local check that starts from a bare checkout, so

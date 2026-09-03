@@ -36,35 +36,39 @@ COPY apps/api apps/api
 RUN pnpm --filter @olc/api build
 
 # ---------------------------------------------------------------------------
-# runtime — slim, no build toolchain, starts the compiled app
+# runtime — slim, prod deps only, starts the compiled app
 # ---------------------------------------------------------------------------
+# A second, separate install rather than pruning the build stage's tree:
+# `pnpm prune --prod` at the workspace root does not reliably keep the
+# workspace-package symlinks (apps/api/node_modules ended up empty, including
+# `reflect-metadata`, a real prod dependency) — tried and reverted. A filtered
+# prod install is the well-trodden pnpm-in-Docker path and does not have that
+# failure mode.
 FROM node:22-slim AS runtime
 ENV NODE_ENV=production
-# Shared corepack cache so the pnpm the `packageManager` field pins is already
-# downloaded and readable by the unprivileged `node` user.
-ENV COREPACK_HOME=/opt/corepack
 WORKDIR /app
+RUN corepack enable
 
-# The installed tree comes from the build stage rather than a second install:
-# pnpm's symlinks into `node_modules/.pnpm` are relative, so they survive the
-# copy. `apps/web` is left behind. This keeps `pnpm --filter @olc/api
-# db:migrate` runnable in this image (it needs `tsx` and `drizzle/`), which is
-# how migrations are applied to the compose database — at the cost of carrying
-# the API's devDependencies. Fine for a local image; a deploy artifact would
-# prune to prod deps and run the compiled migrator instead.
-COPY --from=build /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml ./
-COPY --from=build /app/node_modules node_modules
-COPY --from=build /app/packages/types packages/types
-COPY --from=build /app/apps/api apps/api
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/api/package.json apps/api/
+COPY apps/web/package.json apps/web/
+COPY packages/types/package.json packages/types/
 
-# The dependency tree is baked into the image and `node` cannot write to it, so
-# pnpm must not try to re-install before running a script — which is what it
-# does by default since pnpm 10. Image-only config: the host keeps the check.
-RUN printf '\nverifyDepsBeforeRun: false\n' >> /app/pnpm-workspace.yaml \
- && corepack enable && corepack prepare --activate && chmod -R a+rX "$COREPACK_HOME"
+# `...` pulls in @olc/api's workspace dependency (@olc/types) too. Migrations
+# run on the host against `db`'s published `localhost:5432` (see README), not
+# inside this image, so nothing here needs `tsx` or `drizzle-kit`.
+# `pnpm install` leaves its downloaded corepack binary and content-addressable
+# store/metadata caches under root's home — none of it is needed after this,
+# and it has to go in this same RUN or it survives as dead weight in the layer
+# regardless of a later `rm`.
+RUN pnpm install --prod --frozen-lockfile --filter "@olc/api..." \
+ && rm -rf "$(pnpm store path)" ~/.cache/pnpm ~/.cache/node/corepack
 
-# Everything the app reads is relative to the package root: `dist/main.js`,
-# `drizzle/` for the migrator, and the `.env` cascade `shared/config` loads.
+COPY --from=build /app/packages/types/dist packages/types/dist
+COPY --from=build /app/apps/api/dist apps/api/dist
+
+# Everything the app reads is relative to the package root: `dist/main.js` and
+# the `.env` cascade `shared/config` loads.
 WORKDIR /app/apps/api
 USER node
 

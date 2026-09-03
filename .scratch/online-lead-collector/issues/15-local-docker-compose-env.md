@@ -16,7 +16,7 @@ build time) before it reaches Render.
   - [x] `db`: `postgres:16`, named volume, healthcheck, env for a local `olc` database
   - [x] `api`: built from `apps/api/Dockerfile`, `env_file` the api `.env`, `depends_on` db healthy, port `3000` published
 - [x] `apps/api/.env.example` documents the compose `DATABASE_URL` (e.g. `postgresql://olc:olc@db:5432/olc`) and `DATABASE_URL_DIRECT`
-- [x] `docker compose run --rm api pnpm --filter @olc/api db:migrate` applies the Drizzle migrations to the `db` container
+- [x] Migrations reach the `db` container — decided to run `pnpm --filter @olc/api db:migrate` from the host against `db`'s published `localhost:5432`, not `docker compose run` (see Notes: keeps the runtime image prod-pruned)
 - [x] `docker compose up --build` → `curl localhost:3000/health` returns `{"status":"ok"}`
 - [x] `.dockerignore` excludes `node_modules`, `dist`, `.git`, `.env`, test/coverage output
 - [x] README "Develop" section documents the compose workflow and that `docker compose build` is the pre-deploy check to run before opening a `dev → main` PR
@@ -33,23 +33,34 @@ build time) before it reaches Render.
   `packages/types` extends a root config that nothing in `apps/api` references,
   so the image had not copied it. Exactly the class of fresh-host error the
   ticket is for.
-- **Runtime stage keeps the API's devDependencies (image ~800 MB).** The
-  acceptance criteria want both a slim runtime stage *and* `docker compose run
-  --rm api pnpm --filter @olc/api db:migrate`, and those pull in opposite
-  directions: `db:migrate` runs the TypeScript migrator through `tsx`, a
-  devDependency. The runtime stage therefore copies the built tree from the
-  build stage instead of doing a `--prod` install: slim base image, no build
-  toolchain, non-root, `node dist/main.js` — but not pruned. This image is a
-  local fixture, not the deploy artifact (Render builds from source per
-  `render.yaml`), so size was the cheaper thing to give up. A prod-pruned image
-  would need migrations run from compiled output (`node
-  dist/shared/db/migrate.js`) — worth doing if this image ever ships, and
-  relevant to ticket 16.
-- pnpm 10+ re-installs dependencies before running a script; in an image whose
-  `node_modules` the `node` user cannot write, that fails with `EACCES`. The
-  runtime stage appends `verifyDepsBeforeRun: false` to the image's copy of
-  `pnpm-workspace.yaml` (image-only — the host keeps the check). The equivalent
-  `.npmrc` key and `npm_config_*` env var are both ignored by pnpm 11.
+- **Revised after review: migrations run on the host, not in the container** —
+  `pnpm --filter @olc/api db:migrate` against `db`'s published
+  `localhost:5432`, per `DATABASE_URL_DIRECT` in `.env.example`. That freed the
+  runtime stage to be genuinely prod-only, so `docker compose run --rm api
+  pnpm --filter @olc/api db:migrate` (and the `tsx`/`drizzle-kit` it needs) is
+  gone from this image entirely.
+- **Runtime stage does a second, filtered `pnpm install --prod`** rather than
+  building once and pruning. First attempt was `pnpm prune --prod` on the build
+  stage's tree: it does not reliably keep workspace-package symlinks — in
+  testing, `apps/api/node_modules` came back empty, including `reflect-metadata`,
+  a real runtime dependency (not a devDependency), and the app crashed on boot
+  with `Cannot find module 'reflect-metadata'`. `pnpm install --prod
+  --frozen-lockfile --filter "@olc/api..."` in a fresh runtime stage, copying
+  only `dist/` from the build stage, is the standard pnpm-in-Docker pattern and
+  does not have that failure mode.
+- **`pnpm install`'s own caches have to be cleaned in the same `RUN`,** or they
+  survive as dead weight in the layer: the content-addressable store
+  (`pnpm store path`), `~/.cache/pnpm` (registry metadata), and
+  `~/.cache/node/corepack` (the downloaded pnpm binary) together added ~470 MB
+  invisible to `docker compose exec` (which runs as the unprivileged `node`
+  user with no read access to `/root`) — only visible by inspecting the image
+  as root. Removing all three in the install's own `RUN` line brought the final
+  image from ~800 MB down to **414 MB**.
+- The `verifyDepsBeforeRun: false` / pnpm-10-re-installs-before-scripts
+  workaround from the first pass is gone too — it existed only to let
+  `db:migrate` run as a `pnpm` script inside the container; the runtime image
+  no longer runs any `pnpm` command at all (`CMD` is `node dist/main.js`
+  directly).
 - `apps/api/.env` (gitignored) is what compose reads via `env_file`; the boot
   validation requires the Google/JWT variables even for a `/health` check, so
   `.env.example` values are enough to bring the stack up.
