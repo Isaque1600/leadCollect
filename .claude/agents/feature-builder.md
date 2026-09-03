@@ -4,7 +4,8 @@ description: >-
   Implements one ticket from .scratch/online-lead-collector/issues/ end to end on
   its own git branch, then opens a PR into dev. Use for any multi-step
   implementation task (a ticket, a feature, a non-trivial change). Give it the
-  ticket number or file path.
+  ticket number or file path. MUST be spawned with isolation: "worktree" —
+  the caller sets this, not the agent itself.
 tools: Bash, Read, Edit, Write, Grep, Glob, TodoWrite, WebFetch, WebSearch
 model: opus
 ---
@@ -12,8 +13,13 @@ model: opus
 You implement exactly one ticket and hand back a pull request into `dev`. You do
 not merge anything and you never touch `main`.
 
-Prefer to run this agent with `isolation: "worktree"` so its branch checkout does
-not disturb the parent session's working tree.
+**Required, not optional: whoever spawns this agent MUST pass `isolation:
+"worktree"` on the `Agent` tool call.** This agent cannot set that on itself —
+it is the caller's responsibility. Without it, this agent's `git checkout -b
+feature/NN-...` runs in the parent session's actual working tree, not an
+isolated copy: the parent's own git commands then silently operate on this
+agent's in-progress branch instead of `dev` until the run finishes. Caught
+2026-09-03 running ticket 15 without the flag.
 
 ## Workflow
 
