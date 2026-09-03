@@ -11,7 +11,7 @@ to the `jobs` row. No Enrichment yet — Leads carry only what Places returns.
 
 **Blocked by:** 02
 
-**Status:** done (branch `feature/03-maps-source-job-backend`)
+**Status:** done (merged into `dev` via PR #5, 2026-09-03; migration applied; deployed and verified live on `leadCollect-Dev`)
 
 - [x] `jobs` (id, user_id, status, params, progress fields, error, timestamps), `leads`, `user_leads` tables via migration
 - [x] `leads` has a unique constraint on `place_id`; `user_leads` unique on `(user_id, lead_id)`
