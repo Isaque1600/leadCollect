@@ -1,17 +1,19 @@
 import { describe, expect, it } from "vitest";
 import { JobRunner } from "../../../../src/modules/jobs/application/job-runner.service";
 import type { MapsSource } from "../../../../src/modules/jobs/domain/maps-source.port";
+import { FakeEnrichment } from "../../enrichment/fake-enrichment";
 import { FakeLeadPool } from "../../leads/fake-lead-pool";
 import { FakeJobs, FakeMapsSource, USER_ID, jobParams } from "../fake-jobs";
 
 async function runJob(maps: MapsSource) {
   const jobs = new FakeJobs();
   const leadPool = new FakeLeadPool();
+  const enrichment = new FakeEnrichment();
   const job = await jobs.create(USER_ID, jobParams);
 
-  await new JobRunner(jobs, maps, leadPool).run(job);
+  await new JobRunner(jobs, maps, leadPool, enrichment).run(job);
 
-  return { jobs, leadPool, job: jobs.only };
+  return { jobs, leadPool, enrichment, job: jobs.only };
 }
 
 describe("JobRunner", () => {
@@ -103,9 +105,9 @@ describe("JobRunner", () => {
     const jobs = new FakeJobs();
 
     const first = await jobs.create(USER_ID, jobParams);
-    await new JobRunner(jobs, maps, leadPool).run(first);
+    await new JobRunner(jobs, maps, leadPool, new FakeEnrichment()).run(first);
     const second = await jobs.create(USER_ID, jobParams);
-    await new JobRunner(jobs, maps, leadPool).run(second);
+    await new JobRunner(jobs, maps, leadPool, new FakeEnrichment()).run(second);
 
     expect(leadPool.upsertCalls).toBe(2);
     expect(leadPool.leads).toHaveLength(1);
@@ -134,9 +136,32 @@ describe("JobRunner", () => {
     const jobs = new FakeJobs();
     const job = await jobs.create(USER_ID, { ...jobParams, maxResults: 3 });
 
-    await new JobRunner(jobs, maps, new FakeLeadPool()).run(job);
+    await new JobRunner(jobs, maps, new FakeLeadPool(), new FakeEnrichment()).run(job);
 
     expect(maps.detailsRequests).toHaveLength(3);
+  });
+
+  it("hands every collected Lead to Enrichment", async () => {
+    const maps = new FakeMapsSource([{ placeId: "place-a", name: "Clínica A" }], {
+      "place-a": {
+        placeId: "place-a",
+        name: "Clínica Sorriso",
+        phone: "(83) 3421-0000",
+        website: "https://sorriso.com.br/",
+        sourceUrl: null,
+      },
+    });
+
+    const { enrichment, leadPool } = await runJob(maps);
+
+    expect(enrichment.enriched).toEqual([
+      expect.objectContaining({
+        id: leadPool.leads[0]!.id,
+        website: "https://sorriso.com.br/",
+        phone: "(83) 3421-0000",
+        enrichedAt: null,
+      }),
+    ]);
   });
 
   it("fails the Job with the error text rather than rejecting", async () => {

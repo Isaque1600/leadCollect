@@ -1,4 +1,4 @@
-import type { CollectedLead, Lead, LeadDraft } from "./lead";
+import type { CollectedLead, EnrichmentResult, Lead, LeadDraft } from "./lead";
 
 /** Injection token for the {@link LeadPool} port. */
 export const LEAD_POOL = Symbol("LeadPool");
@@ -22,4 +22,14 @@ export interface LeadPool {
    * is a no-op rather than an error: the existing Collected Lead is returned.
    */
   collect(userId: string, leadId: string): Promise<CollectedLead>;
+
+  /**
+   * Writes what Enrichment found back onto the pooled Lead, in place — the pool
+   * is global (ADR-0002), so every user who has this Lead gets the refreshed
+   * contact details. `email` and `phone` are Enrichment's to set, which is why
+   * `upsertByPlaceId` deliberately leaves `email` alone.
+   *
+   * Returns the updated Lead, or null if the row is gone.
+   */
+  recordEnrichment(leadId: string, result: EnrichmentResult): Promise<Lead | null>;
 }

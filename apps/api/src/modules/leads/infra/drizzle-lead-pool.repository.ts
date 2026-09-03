@@ -2,7 +2,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import type { SourceLabel } from "@olc/types";
 import { and, eq, sql } from "drizzle-orm";
 import { DB, type Database } from "../../../shared/db/db.module";
-import type { CollectedLead, Lead, LeadDraft } from "../domain/lead";
+import type { CollectedLead, EnrichmentResult, Lead, LeadDraft } from "../domain/lead";
 import type { LeadPool } from "../domain/lead-pool.port";
 import { leads, userLeads, type LeadRow, type UserLeadRow } from "./leads.schema";
 
@@ -19,6 +19,7 @@ function toLead(row: LeadRow): Lead {
     website: row.website,
     sourceUrl: row.sourceUrl,
     source: row.source as SourceLabel,
+    enrichedAt: row.enrichedAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -43,9 +44,10 @@ export class DrizzleLeadPoolRepository implements LeadPool {
    * two concurrent Jobs finding the same place settle on a single row instead of
    * racing to insert duplicates.
    *
-   * The update deliberately refreshes only what Places just told us. Fields a
-   * later Enrichment owns (`email`) are left alone so re-finding a Lead does not
-   * wipe them.
+   * The update deliberately refreshes only what Places just told us. Fields
+   * Enrichment owns (`email`, `enriched_at`) are left alone so re-finding a Lead
+   * does not wipe them — `phone` is refreshed because Places is its first
+   * source, and Enrichment re-applies its precedence right after this upsert.
    */
   async upsertByPlaceId(draft: LeadDraft & { placeId: string }): Promise<Lead> {
     const [row] = await this.db
@@ -75,6 +77,24 @@ export class DrizzleLeadPoolRepository implements LeadPool {
       })
       .returning();
     return toLead(row!);
+  }
+
+  /**
+   * One targeted update rather than a full upsert: Enrichment owns exactly these
+   * three columns and must not touch what Places wrote.
+   */
+  async recordEnrichment(leadId: string, result: EnrichmentResult): Promise<Lead | null> {
+    const [row] = await this.db
+      .update(leads)
+      .set({
+        email: result.email,
+        phone: result.phone,
+        enrichedAt: result.enrichedAt,
+        updatedAt: sql`now()`,
+      })
+      .where(eq(leads.id, leadId))
+      .returning();
+    return row ? toLead(row) : null;
   }
 
   async collect(userId: string, leadId: string): Promise<CollectedLead> {
