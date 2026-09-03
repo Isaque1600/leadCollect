@@ -72,23 +72,30 @@ in a URL fragment (`#token=...`), which `apps/web/src/api.ts`'s
 
 ## apps/web
 
-React 19 + React Router 7 + Vite. No state library beyond React context —
-`AuthProvider` is the only cross-cutting one so far.
+React 19 + React Router 7 + Vite. Server state lives in TanStack Query;
+`AuthProvider` (React context) holds the only client state that crosses
+screens.
 
 ```
 src/
 ├─ api.ts              every API call goes through here — one place that
 │                       knows the base URL, attaches the Bearer token, and
 │                       reacts to a 401 (see below)
+├─ query-client.ts     the single QueryClient and its defaults
 ├─ auth/
 │  ├─ AuthProvider.tsx  who's signed in; exposes { status, user, signOut }
 │  ├─ RequireAuth.tsx   route guard — anonymous visitors bounce to /login
 │  ├─ intended-route.ts remembers where an anonymous visit was headed
 │  └─ legacy-token-fragment.ts  parses the OAuth callback's #token=...
+├─ jobs/               starting a Job and watching it run
+│  ├─ queries.ts        useStartJob (mutation) + useJobProgress (polling query)
+│  ├─ SearchForm.tsx    business type / city / state / max results → POST /jobs
+│  └─ job-status.ts     which JobStatus values are terminal
 ├─ pages/               one file per route-level screen
 │  ├─ LoginPage.tsx
 │  ├─ AuthCallbackPage.tsx
-│  ├─ HomePage.tsx      the only protected screen today
+│  ├─ HomePage.tsx      the search form
+│  ├─ JobProgressPage.tsx  one Job's progress, polled
 │  └─ NotFoundPage.tsx
 ├─ App.tsx              the shell around every protected route (header,
 │                       "Signed in as ...", sign-out) — Outlet renders the
@@ -102,6 +109,7 @@ src/
 /login            LoginPage           — public
 /auth/callback     AuthCallbackPage    — public, captures the JWT then redirects
 /                  App > HomePage      — behind RequireAuth
+/jobs/:jobId       App > JobProgressPage — behind RequireAuth
 *                  NotFoundPage
 ```
 
@@ -118,12 +126,26 @@ There is exactly one place that reacts to an expired/invalid token:
 which makes `RequireAuth` redirect. A new page never has to handle 401 itself;
 just call `apiFetch` (or a wrapper around it) and let the app fall through.
 
+### Data fetching
+
+`main.tsx` mounts one `QueryClientProvider` outside the router *and* outside
+`AuthProvider`, so everything is inside it. Query functions are the plain
+functions in `api.ts` — TanStack Query owns caching, retries and the polling
+timer, `apiFetch` still owns the URL, the token and the 401.
+
+`useJobProgress` is the polling case: `refetchInterval` returns 2000 ms until
+the Job reports `done`/`failed`/`cancelled`, then `false`. Because the timer
+belongs to the query, `/jobs/:jobId` survives a refresh and stops polling on
+its own. Queries never retry an `UnauthorizedError`, and `AuthProvider` empties
+the cache whenever the user goes anonymous so nothing leaks into the next
+sign-in on the same tab.
+
 ### What's not built yet in the SPA
 
-No page starts a Job, shows its progress, or downloads an export — `HomePage`
-is a placeholder. That's tickets 04 (start a Job + progress), 09
-(cancel/concurrency UI), and 10 (export + LGPD notice), all `ready-for-agent`.
-See `.scratch/online-lead-collector/issues/`.
+A user can start a Job and watch it finish, but cannot cancel one, list their
+past Jobs (there is no `GET /jobs`), or export their Collected Leads. That's
+tickets 09 (cancel/concurrency UI) and 10 (export + LGPD notice). See
+`.scratch/online-lead-collector/issues/`.
 
 ## Cross-cutting
 

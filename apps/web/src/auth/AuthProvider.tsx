@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import type { MeResponse } from "@olc/types";
@@ -19,6 +20,10 @@ const AuthContext = createContext<AuthValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>("loading");
   const [user, setUser] = useState<MeResponse | null>(null);
+  // Everything in the query cache was fetched for the user who is leaving, so
+  // going anonymous throws it away rather than showing it to whoever signs in
+  // next in the same tab.
+  const queryClient = useQueryClient();
 
   const reload = useCallback(async () => {
     if (!getToken()) {
@@ -45,8 +50,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       onUnauthorized(() => {
         setUser(null);
         setStatus("anonymous");
+        queryClient.clear();
       }),
-    [],
+    [queryClient],
   );
 
   useEffect(() => {
@@ -58,7 +64,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     forgetIntendedRoute();
     setUser(null);
     setStatus("anonymous");
-  }, []);
+    queryClient.clear();
+  }, [queryClient]);
 
   return (
     <AuthContext.Provider value={{ status, user, reload, signOut }}>

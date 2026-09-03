@@ -3,6 +3,7 @@ import { App } from "./App";
 import { RequireAuth } from "./auth/RequireAuth";
 import { AuthCallbackPage } from "./pages/AuthCallbackPage";
 import { HomePage } from "./pages/HomePage";
+import { JobProgressPage } from "./pages/JobProgressPage";
 import { LoginPage } from "./pages/LoginPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 
@@ -15,6 +16,7 @@ export function AppRoutes() {
       <Route element={<RequireAuth />}>
         <Route element={<App />}>
           <Route path="/" element={<HomePage />} />
+          <Route path="/jobs/:jobId" element={<JobProgressPage />} />
         </Route>
       </Route>
 
