@@ -1,92 +1,80 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { App } from "./App";
+import { renderApp, stubApi } from "./test/render-app";
 
 beforeEach(() => {
   localStorage.clear();
+  sessionStorage.clear();
   window.history.replaceState(null, "", "/");
+  localStorage.setItem("olc.token", "jwt-abc");
 });
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
-describe("App", () => {
-  it("shows ok when the API health check succeeds", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ status: "ok" }),
-      }),
-    );
+describe("app shell", () => {
+  it("shows the signed-in email once, in the shell", async () => {
+    stubApi();
 
-    render(<App />);
+    renderApp("/");
+
+    expect(await screen.findByTestId("user-email")).toHaveTextContent("hunter@example.com");
+  });
+
+  it("shows ok when the API health check succeeds", async () => {
+    stubApi();
+
+    renderApp("/");
+
     await waitFor(() => expect(screen.getByTestId("api-status")).toHaveTextContent("ok"));
   });
 
   it("shows error when the API health check fails", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("boom")));
+    stubApi();
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (String(url).endsWith("/health")) return Promise.reject(new Error("boom"));
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          id: "u1",
+          email: "hunter@example.com",
+          name: "H",
+          monthlyQuotaUsed: 0,
+        }),
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
 
-    render(<App />);
+    renderApp("/");
+
     await waitFor(() => expect(screen.getByTestId("api-status")).toHaveTextContent("error"));
   });
 
-  it("shows a Sign in with Google link when there is no token", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ status: "ok" }) }),
-    );
+  it("clears the token and returns to /login on log out", async () => {
+    stubApi();
 
-    render(<App />);
-    const link = await screen.findByTestId("google-login");
-    expect(link).toHaveAttribute("href", expect.stringContaining("/auth/google"));
-  });
+    renderApp("/");
+    await screen.findByTestId("user-email");
+    fireEvent.click(screen.getByRole("button", { name: /log out/i }));
 
-  it("captures a token from the URL fragment, calls /me, and shows the email", async () => {
-    window.history.replaceState(null, "", "/#token=jwt-abc");
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
-        if (String(url).endsWith("/health")) {
-          return Promise.resolve({ ok: true, json: async () => ({ status: "ok" }) });
-        }
-        expect((opts?.headers as Record<string, string>).Authorization).toBe("Bearer jwt-abc");
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({
-            id: "u1",
-            email: "hunter@example.com",
-            name: "Hunter",
-            monthlyQuotaUsed: 0,
-          }),
-        });
-      }),
-    );
-
-    render(<App />);
-    await waitFor(() =>
-      expect(screen.getByTestId("user-email")).toHaveTextContent("hunter@example.com"),
-    );
-    expect(localStorage.getItem("olc.token")).toBe("jwt-abc");
-    expect(window.location.hash).toBe("");
-  });
-
-  it("clears the token and returns to signed-out on a 401 from /me", async () => {
-    localStorage.setItem("olc.token", "stale");
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockImplementation((url: string) => {
-        if (String(url).endsWith("/health")) {
-          return Promise.resolve({ ok: true, json: async () => ({ status: "ok" }) });
-        }
-        return Promise.resolve({ ok: false, status: 401, json: async () => ({}) });
-      }),
-    );
-
-    render(<App />);
-    await waitFor(() => expect(screen.getByTestId("google-login")).toBeInTheDocument());
+    await screen.findByTestId("google-login");
     expect(localStorage.getItem("olc.token")).toBeNull();
+    expect(window.location.pathname).toBe("/login");
+  });
+
+  it("bounces to /login when any API call comes back 401", async () => {
+    // /me succeeds, then the health call 401s — the handling lives in `api.ts`,
+    // not at the call site.
+    stubApi({ health: 401 });
+
+    renderApp("/");
+
+    await screen.findByTestId("google-login");
+    expect(localStorage.getItem("olc.token")).toBeNull();
+    expect(window.location.pathname).toBe("/login");
   });
 });

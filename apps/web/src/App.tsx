@@ -1,66 +1,31 @@
-import { useEffect, useState } from "react";
-import type { MeResponse } from "@olc/types";
-import {
-  captureTokenFromUrl,
-  clearToken,
-  getHealth,
-  getMe,
-  getToken,
-  googleLoginUrl,
-} from "./api";
+import { Link, Outlet } from "react-router";
+import { useAuth } from "./auth/AuthProvider";
 
-type Status = "loading" | "ok" | "error";
-
+/**
+ * The app shell around every protected route: who is signed in and how to sign
+ * out live here, so no feature screen has to carry them.
+ */
 export function App() {
-  const [status, setStatus] = useState<Status>("loading");
-  const [user, setUser] = useState<MeResponse | null>(null);
-
-  useEffect(() => {
-    getHealth()
-      .then((res) => setStatus(res.status === "ok" ? "ok" : "error"))
-      .catch(() => setStatus("error"));
-  }, []);
-
-  useEffect(() => {
-    captureTokenFromUrl();
-    if (!getToken()) return;
-    getMe()
-      .then(setUser)
-      .catch(() => {
-        clearToken();
-        setUser(null);
-      });
-  }, []);
-
-  function logout() {
-    clearToken();
-    setUser(null);
-  }
+  const { user, signOut } = useAuth();
 
   return (
-    <main style={{ fontFamily: "system-ui, sans-serif", padding: "2rem" }}>
-      <h1>Lead Collector</h1>
-      <p>
-        API:{" "}
-        <strong data-testid="api-status">
-          {status === "loading" ? "checking…" : status}
-        </strong>
-      </p>
-
-      {user ? (
-        <p>
-          Signed in as <strong data-testid="user-email">{user.email}</strong>{" "}
-          <button type="button" onClick={logout}>
-            Log out
-          </button>
-        </p>
-      ) : (
-        <p>
-          <a href={googleLoginUrl} data-testid="google-login">
-            Sign in with Google
-          </a>
-        </p>
-      )}
-    </main>
+    <div>
+      <header>
+        <Link to="/">
+          <h1>Lead Collector</h1>
+        </Link>
+        {user ? (
+          <p>
+            Signed in as <strong data-testid="user-email">{user.email}</strong>{" "}
+            <button type="button" onClick={signOut}>
+              Log out
+            </button>
+          </p>
+        ) : null}
+      </header>
+      <main>
+        <Outlet />
+      </main>
+    </div>
   );
 }
