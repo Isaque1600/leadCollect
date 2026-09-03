@@ -3,8 +3,9 @@
 Multi-user web app that finds business leads from Google Maps and web search,
 enriches them from company websites, and exports them as Excel.
 
-See `CONTEXT.md` for the glossary, `docs/adr/` for architecture decisions, and
-`.scratch/online-lead-collector/` for the ticket breakdown.
+See `CONTEXT.md` for the glossary, `docs/adr/` for architecture decisions,
+`ARCHITECTURE.md` for how the modules/pages actually fit together right now,
+and `.scratch/online-lead-collector/` for the ticket breakdown.
 
 ## Layout
 
