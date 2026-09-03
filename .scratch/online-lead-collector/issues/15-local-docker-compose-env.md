@@ -9,7 +9,7 @@ build time) before it reaches Render.
 
 **Blocked by:** 01
 
-**Status:** done (branch feature/15-local-docker-compose-env)
+**Status:** done (merged into `dev` via PR #6, 2026-09-03)
 
 - [x] `apps/api/Dockerfile` — multi-stage: a build stage that runs `corepack enable`, `pnpm install --frozen-lockfile`, `pnpm --filter @olc/api build` from a clean checkout (no bind-mounted `node_modules`), and a slim runtime stage that runs `node dist/main.js`
 - [x] `docker-compose.yml` at the repo root with two services:
