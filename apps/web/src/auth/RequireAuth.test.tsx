@@ -1,23 +1,31 @@
+import { QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthProvider } from "./AuthProvider";
 import { RequireAuth } from "./RequireAuth";
-import { stubApi } from "../test/render-app";
+import { createTestQueryClient, stubApi } from "../test/render-app";
 
-/** A route table with a protected deep link, standing in for ticket 04's. */
+/**
+ * A route table with a protected deep link, kept minimal so this file tests the
+ * guard rather than the real route table (`routes.test.tsx` does that).
+ * `AuthProvider` needs a QueryClient above it — it empties the cache when the
+ * user goes anonymous.
+ */
 function renderGuarded(url: string) {
   return render(
-    <MemoryRouter initialEntries={[url]}>
-      <AuthProvider>
-        <Routes>
-          <Route path="/login" element={<p data-testid="login">login</p>} />
-          <Route element={<RequireAuth />}>
-            <Route path="/jobs/:jobId" element={<p data-testid="job">job</p>} />
-          </Route>
-        </Routes>
-      </AuthProvider>
-    </MemoryRouter>,
+    <QueryClientProvider client={createTestQueryClient()}>
+      <MemoryRouter initialEntries={[url]}>
+        <AuthProvider>
+          <Routes>
+            <Route path="/login" element={<p data-testid="login">login</p>} />
+            <Route element={<RequireAuth />}>
+              <Route path="/jobs/:jobId" element={<p data-testid="job">job</p>} />
+            </Route>
+          </Routes>
+        </AuthProvider>
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
