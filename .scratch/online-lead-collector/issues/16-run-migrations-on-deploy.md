@@ -8,7 +8,7 @@ against each environment's `DATABASE_URL_DIRECT`). This ticket automates it.
 
 **Blocked by:** 02
 
-**Status:** done (branch feature/16-migrate-on-deploy) — deploy verification on `leadCollect-Dev` pending, done by the user
+**Status:** done (branch feature/16-migrate-on-deploy, PR #9 https://github.com/Isaque1600/leadCollect/pull/9) — deploy verification on `leadCollect-Dev` pending, done by the user
 
 - [x] Migrations run on every deploy of each Render service, before the new version serves traffic
 - [x] Idempotent and safe to run on restart (Drizzle's migrator already is)
