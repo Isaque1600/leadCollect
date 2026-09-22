@@ -61,8 +61,9 @@ secrets (`VERCEL_DEPLOY_HOOK_MAIN` / `_DEV`).
   ahead of `main`; the next `dev → main` PR is a big one.
 - Render's `leadCollect-Dev` auto-deploys from `dev`, so the dev API is the
   first environment to run the new config validation.
-- Both Neon databases have their `users` table (migrations run by hand,
-  2026-09-02).
+- Both Neon databases have their `users` table (migrated by hand on
+  2026-09-02, before ticket 16). From ticket 16 on, each Render deploy runs its
+  own migrations (`apps/api/scripts/start.sh`).
 
 ### Tickets
 
@@ -76,7 +77,7 @@ secrets (`VERCEL_DEPLOY_HOOK_MAIN` / `_DEV`).
 | 13 | Deploy SPA to Vercel | done |
 | 14 | Explicit CI steps | done |
 | 15 | Local Docker Compose env | not started |
-| 16 | Migrations on deploy | not started (low priority) |
+| 16 | Migrations on deploy | in review (branch `feature/16-migrate-on-deploy`) |
 | 17 | OpenAPI docs via @nestjs/swagger | not started |
 | 18 | SPA routing, protected routes, app shell | ready-for-agent — blocks 04 |
 | 19 | POST code exchange for token delivery | ready-for-agent — do after 18 |
@@ -167,8 +168,8 @@ correct — a one-line strip there would make it structural.
 
 Local env files are `apps/api/.env.development.local` and
 `.env.production.local` (gitignored). The dev one points at Neon dev for now and
-switches to local Postgres once ticket 15 lands; the prod one exists only to run
-migrations against the prod database until ticket 16 automates it.
+switches to local Postgres once ticket 15 lands; the prod one is no longer needed
+for migrations: since ticket 16, each Render deploy applies its own.
 
 ## Working rules for agents
 

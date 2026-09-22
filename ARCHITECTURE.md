@@ -25,6 +25,7 @@ src/
 │  ├─ config/     typed env namespaces, validated at boot (env.validation.ts)
 │  └─ db/         the Drizzle client, migrator, connection lifecycle
 └─ main.ts        global ValidationPipe, CORS, shutdown hooks
+scripts/start.sh  Render's start command: migrate, then exec the server
 ```
 
 Inside each module, the dependency only points one way:
@@ -152,7 +153,10 @@ tickets 09 (cancel/concurrency UI) and 10 (export + LGPD notice). See
 - **Deploy topology**: ADR-0007. Two fully separate environments (`dev`
   branch → `leadCollect-Dev` + a preview Vercel deploy; `main` → 
   `leadCollect-Prod` + the production Vercel deploy), each its own Neon
-  database. `render.yaml` defines both Render services.
+  database. `render.yaml` defines both Render services. Their start command
+  is `apps/api/scripts/start.sh`: it runs `db:migrate` against
+  `DATABASE_URL_DIRECT`, and a failed migration exits before the server starts.
+  Otherwise it `exec`s `node dist/main.js`. So migrations apply on every deploy.
 - **CI**: `.github/workflows/ci.yml` — lint/typecheck/test/build on every PR
   and on push to `dev`/`main`; `deploy-web` triggers the Vercel deploy hook
   for the pushed branch (the API deploys separately, via Render's own GitHub
