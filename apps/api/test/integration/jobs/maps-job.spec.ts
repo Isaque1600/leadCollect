@@ -247,6 +247,51 @@ describe.skipIf(!url)("Maps Source Job (integration)", () => {
     });
   });
 
+  it("keeps the site WhatsApp when a recently enriched Lead is re-found", async () => {
+    stubPlaces(
+      [{ id: "place-a", displayName: { text: "Clínica A" } }],
+      {
+        "place-a": {
+          id: "place-a",
+          displayName: { text: "Clínica Sorriso" },
+          nationalPhoneNumber: "(83) 3421-0000",
+          websiteUri: "https://sorriso.com.br/",
+        },
+      },
+      {
+        "https://sorriso.com.br/": '<a href="https://wa.me/5583999990000">WhatsApp</a>',
+      },
+    );
+
+    await runner.run(await jobsRepository.create(userId, jobParams));
+    // The second Job re-finds the Lead within 30 days, so it is not re-enriched:
+    // the upsert alone must not put the Places phone back over the WhatsApp.
+    await runner.run(await jobsRepository.create(userId, jobParams));
+
+    const [lead] = await db.select().from(leads);
+    expect(lead!.phone).toBe("5583999990000");
+  });
+
+  it("still refreshes the Places phone of a Lead that was never enriched", async () => {
+    stubPlaces([{ id: "place-b", displayName: { text: "Clínica B" } }], {
+      "place-b": { id: "place-b", displayName: { text: "Clínica B" } },
+    });
+    await runner.run(await jobsRepository.create(userId, jobParams));
+
+    vi.unstubAllGlobals();
+    stubPlaces([{ id: "place-b", displayName: { text: "Clínica B" } }], {
+      "place-b": {
+        id: "place-b",
+        displayName: { text: "Clínica B" },
+        nationalPhoneNumber: "(83) 3421-1111",
+      },
+    });
+    await runner.run(await jobsRepository.create(userId, jobParams));
+
+    const [lead] = await db.select().from(leads);
+    expect(lead!.phone).toBe("(83) 3421-1111");
+  });
+
   it("records the Places failure on the Job row rather than throwing", async () => {
     vi.stubGlobal(
       "fetch",

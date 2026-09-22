@@ -26,12 +26,15 @@ export class FakeLeadPool implements LeadPool {
 
     if (index >= 0) {
       // ON CONFLICT DO UPDATE: same row, refreshed — never a second Lead.
+      const existing = this.leads[index]!;
       const updated: Lead = {
-        ...this.leads[index]!,
+        ...existing,
         ...draft,
         // Enrichment owns these two; the upsert leaves them where they were.
-        email: this.leads[index]!.email,
-        enrichedAt: this.leads[index]!.enrichedAt,
+        email: existing.email,
+        enrichedAt: existing.enrichedAt,
+        // Once enriched, `phone` carries Enrichment's precedence, not Places'.
+        phone: existing.enrichedAt === null ? draft.phone : existing.phone,
         updatedAt: new Date("2026-02-01T00:00:00Z"),
       };
       this.leads[index] = updated;

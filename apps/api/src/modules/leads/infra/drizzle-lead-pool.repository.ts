@@ -46,8 +46,10 @@ export class DrizzleLeadPoolRepository implements LeadPool {
    *
    * The update deliberately refreshes only what Places just told us. Fields
    * Enrichment owns (`email`, `enriched_at`) are left alone so re-finding a Lead
-   * does not wipe them — `phone` is refreshed because Places is its first
-   * source, and Enrichment re-applies its precedence right after this upsert.
+   * does not wipe them. `phone` is refreshed from Places only until the Lead's
+   * first Enrichment; after that it holds the precedence Enrichment applied
+   * (site WhatsApp first), which a re-find within 30 days would otherwise
+   * overwrite with no re-Enrichment to restore it.
    */
   async upsertByPlaceId(draft: LeadDraft & { placeId: string }): Promise<Lead> {
     const [row] = await this.db
@@ -67,7 +69,7 @@ export class DrizzleLeadPoolRepository implements LeadPool {
         target: leads.placeId,
         set: {
           name: draft.name,
-          phone: draft.phone,
+          phone: sql`case when ${leads.enrichedAt} is null then excluded.phone else ${leads.phone} end`,
           businessType: draft.businessType,
           hasWebsite: draft.hasWebsite,
           website: draft.website,
