@@ -33,6 +33,13 @@ export const leads = pgTable("leads", {
   sourceUrl: text("source_url"),
   /** `fonte`: "Google Maps" or "Busca Web" — the value the export shows. */
   source: text("source").notNull(),
+  /**
+   * When Enrichment last visited this Lead's website (CONTEXT.md: Enrichment).
+   * Null means never enriched — a Lead with a website and a null `enriched_at`
+   * is enriched by the Job that collects it. More than 30 days old makes it a
+   * Stale Lead, re-enriched in the background.
+   */
+  enrichedAt: timestamp("enriched_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

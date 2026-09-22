@@ -1,4 +1,5 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
+import { ENRICHMENT, type Enrichment } from "../../enrichment/domain/enrichment.port";
 import { LEAD_POOL, type LeadPool } from "../../leads/domain/lead-pool.port";
 import type { LeadDraft } from "../../leads/domain/lead";
 import { composeQueries, type Job } from "../domain/job";
@@ -16,6 +17,9 @@ const MAPS_SOURCE_LABEL = "Google Maps" as const;
  * `run` never rejects — a Job that blows up is a `failed` row with the error
  * text on it, not an unhandled rejection in the process that started it.
  *
+ * Enrichment of what it collects is the enrichment module's call, made once per
+ * Lead through the `ENRICHMENT` port.
+ *
  * Out of scope here and left to ticket 09: the one-running-Job-per-user guard,
  * cancellation between queries, and the stuck-Job reaper.
  */
@@ -27,6 +31,7 @@ export class JobRunner {
     @Inject(JOBS) private readonly jobs: Jobs,
     @Inject(MAPS_SOURCE) private readonly maps: MapsSource,
     @Inject(LEAD_POOL) private readonly leadPool: LeadPool,
+    @Inject(ENRICHMENT) private readonly enrichment: Enrichment,
   ) {}
 
   async run(job: Job): Promise<void> {
@@ -83,6 +88,13 @@ export class JobRunner {
         await this.leadPool.collect(job.userId, lead.id);
         leadsFound += 1;
 
+        // Enrichment decides what this Lead deserves: a site visit now if it has
+        // never been enriched, a background refresh if it is a Stale Lead,
+        // nothing otherwise. Awaited, but only the first case actually visits a
+        // site before returning — a Stale Lead's refresh runs on after the Job
+        // has finished (ticket 05).
+        await this.enrichment.enrichCollectedLead(lead);
+
         await this.jobs.update(job.id, {
           leadsFound,
           apiCallsUsed,
@@ -108,7 +120,8 @@ export class JobRunner {
  * Google's: it is what the user searched for, exactly as `tipo_negocio` came
  * from the query entry in the Python collector's config.
  *
- * `email` stays null — no Enrichment yet (ticket 05).
+ * `email` stays null here: Places does not return one, and Enrichment fills it
+ * after the upsert if the site has one.
  */
 function toLeadDraft(
   details: MapsPlaceDetails,

@@ -19,6 +19,7 @@ src/
 ├─ modules/
 │  ├─ identity/   Google OAuth sign-in, JWT issuing, the users table
 │  ├─ jobs/       Job entity + runner, the Maps Source, /jobs endpoints
+│  ├─ enrichment/ visiting a Lead's website for email/WhatsApp/phone
 │  ├─ leads/      the Lead Pool, Collected Leads, the LEAD_POOL port
 │  └─ health/     GET /health (@nestjs/terminus)
 ├─ shared/
@@ -28,10 +29,10 @@ src/
 ```
 
 Inside each module, the dependency only points one way:
-`jobs → leads → (nothing)`, `identity → (nothing)`. A module's `domain/`
-declares ports (interfaces); its own `infra/` implements them with Drizzle.
-Nothing outside a module reaches into another module's `infra/` or `domain/`
-internals directly — only through the port, injected via `@Module`.
+`jobs → enrichment → leads → (nothing)`, `identity → (nothing)`. A module's
+`domain/` declares ports (interfaces); its own `infra/` implements them with
+Drizzle. Nothing outside a module reaches into another module's `infra/` or
+`domain/` internals directly — only through the port, injected via `@Module`.
 
 ### Routes today
 
@@ -61,6 +62,31 @@ SPA (apiFetch, Bearer token)
 out": `POST /jobs` returns immediately with a `queued` Job, and the runner
 keeps going in-process (ADR-0003 — no queue) until the Job row reaches
 `done`/`failed`. The SPA polls `GET /jobs/:id` for progress.
+
+### Enrichment
+
+Every Lead a Job collects is handed to the `ENRICHMENT` port right after it is
+upserted into the pool, and the enrichment module decides what it deserves:
+
+| The Lead | What happens |
+| --- | --- |
+| no website | nothing — it keeps only what Places returned |
+| `enriched_at IS NULL` | its site is visited **during** the Job, awaited |
+| `enriched_at` older than 30 days (a Stale Lead) | re-visited in the background, not awaited — the Job finishes without it |
+| enriched within 30 days | nothing |
+
+A visit is `robots.txt` first, then the page, with a 500 ms delay between every
+outgoing request and a 10 s timeout — the Python collector's numbers, ported per
+ADR-0004. Email, WhatsApp and phone come out by regex; the phone that lands on
+the Lead is the site's WhatsApp, else the `nationalPhoneNumber` from Places,
+else a phone found on the page. A site that will not load is never an error: the
+Lead simply keeps what it had, with `enriched_at` stamped so the dead site is not
+re-visited by every Job for the next 30 days.
+
+"In the background" is a floating promise inside the same process, exactly as
+`StartMapsJobUseCase` runs the Job itself — no queue and no scheduler (ADR-0003).
+Enrichment owns `leads.email`, `leads.phone` and `leads.enriched_at`; the Maps
+Source's upsert deliberately does not touch `email` or `enriched_at`.
 
 ### Auth
 
