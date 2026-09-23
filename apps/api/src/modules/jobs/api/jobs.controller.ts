@@ -9,6 +9,15 @@ import {
   Post,
   UseGuards,
 } from "@nestjs/common";
+import {
+  ApiBadRequestResponse,
+  ApiBearerAuth,
+  ApiCreatedResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from "@nestjs/swagger";
 import type { JobProgressResponse, StartJobResponse } from "@olc/types";
 import { CurrentUser } from "../../identity/api/current-user.decorator";
 import { JwtAuthGuard } from "../../identity/api/jwt-auth.guard";
@@ -16,6 +25,7 @@ import type { User } from "../../identity/domain/user";
 import { StartMapsJobUseCase } from "../application/start-maps-job.use-case";
 import type { Job } from "../domain/job";
 import { JOBS, type Jobs } from "../domain/jobs.port";
+import { JobProgressResponseDto, StartJobResponseDto } from "./job-responses.dto";
 import { StartJobDto } from "./start-job.dto";
 
 /** The Job as the SPA polls it — no `userId`, no raw params. */
@@ -32,6 +42,9 @@ function toProgress(job: Job): JobProgressResponse {
   };
 }
 
+@ApiTags("jobs")
+@ApiBearerAuth()
+@ApiUnauthorizedResponse({ description: "Missing, invalid or expired token." })
 @Controller("jobs")
 @UseGuards(JwtAuthGuard)
 export class JobsController {
@@ -48,6 +61,8 @@ export class JobsController {
    * The one-running-Job-per-user rule (a 409) belongs to ticket 09.
    */
   @Post()
+  @ApiCreatedResponse({ type: StartJobResponseDto })
+  @ApiBadRequestResponse({ description: "The body failed validation." })
   async start(@CurrentUser() user: User, @Body() body: StartJobDto): Promise<StartJobResponse> {
     const job = await this.startMapsJob.execute(user.id, {
       businessType: body.businessType,
@@ -65,6 +80,9 @@ export class JobsController {
    * into a 400 instead of letting Postgres reject the cast.
    */
   @Get(":id")
+  @ApiOkResponse({ type: JobProgressResponseDto })
+  @ApiBadRequestResponse({ description: "The id is not a UUID." })
+  @ApiNotFoundResponse({ description: "No such Job, or it belongs to another user." })
   async progress(
     @CurrentUser() user: User,
     @Param("id", ParseUUIDPipe) id: string,

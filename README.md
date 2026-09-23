@@ -96,6 +96,25 @@ it catches what a warm workspace hides — a missing build step, a stale
 `.tsbuildinfo`, a file needed at build time that the image never copied, a
 dependency that only resolves because it is installed on the host.
 
+## API docs
+
+The API serves auto-generated OpenAPI docs (`@nestjs/swagger` plus its CLI
+plugin, which infers DTO schemas at `nest build`):
+
+- `/docs`: Swagger UI. Click **Authorize** and paste the JWT from sign-in to
+  call guarded routes from the browser.
+- `/docs-json`: the raw OpenAPI document.
+
+Locally that is [localhost:3000/docs](http://localhost:3000/docs); in prod,
+[leadcollect-prod.onrender.com/docs](https://leadcollect-prod.onrender.com/docs).
+
+**Both paths are served in every environment, prod included. This is a
+deliberate choice** (ticket 17). It is a personal-scale tool and its API
+surface is not secret: the docs describe routes anyone can already call,
+and every guarded route still refuses a call without a valid JWT, from Swagger
+UI or anywhere else. To gate the docs later, skip `setupSwagger(app)` in
+`apps/api/src/main.ts` outside development.
+
 ## Checks
 
 ```bash
