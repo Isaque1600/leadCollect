@@ -2,27 +2,37 @@ import { JwtService } from "@nestjs/jwt";
 import { describe, expect, it, vi } from "vitest";
 import type { Request, Response } from "express";
 import { AuthController } from "../../../../src/modules/identity/api/auth.controller";
+import { IssueExchangeCodeUseCase } from "../../../../src/modules/identity/application/issue-exchange-code.use-case";
+import { RedeemExchangeCodeUseCase } from "../../../../src/modules/identity/application/redeem-exchange-code.use-case";
 import { SignInWithGoogleUseCase } from "../../../../src/modules/identity/application/sign-in-with-google.use-case";
 import { TokensService } from "../../../../src/modules/identity/application/tokens.service";
 import type { User } from "../../../../src/modules/identity/domain/user";
+import { FakeExchangeCodes } from "../fake-exchange-codes";
 import { FakeUsers, googleIdentity, storedUser } from "../fake-users";
 
 const SECRET = "test-secret-that-is-long-enough";
 
 function makeController(seed: User[] = [storedUser]) {
   const users = new FakeUsers(seed);
+  const codes = new FakeExchangeCodes();
   const tokens = new TokensService(new JwtService({ secret: SECRET }));
-  const controller = new AuthController(new SignInWithGoogleUseCase(users), tokens, {
-    nodeEnv: "test",
-    port: 3000,
-    corsOrigins: ["http://localhost:5173"],
-    webAppUrl: "http://localhost:5173",
-  });
+  const controller = new AuthController(
+    new SignInWithGoogleUseCase(users),
+    new IssueExchangeCodeUseCase(codes),
+    new RedeemExchangeCodeUseCase(codes, users, tokens),
+    {
+      nodeEnv: "test",
+      port: 3000,
+      corsOrigins: ["http://localhost:5173"],
+      // Render's value carries a trailing slash; the redirect must not double it.
+      webAppUrl: "http://localhost:5173/",
+    },
+  );
   return { controller, tokens, users };
 }
 
 describe("AuthController", () => {
-  it("redirects to the SPA with a token the API can verify back", async () => {
+  it("redirects to the SPA callback route with an exchange code, not the token", async () => {
     const { controller, tokens } = makeController();
     const redirect = vi.fn();
     const req = { user: googleIdentity } as unknown as Request;
@@ -32,7 +42,10 @@ describe("AuthController", () => {
     expect(redirect).toHaveBeenCalledOnce();
     const target = new URL(redirect.mock.calls[0]![0] as string);
     expect(target.origin).toBe("http://localhost:5173");
-    const token = new URLSearchParams(target.hash.slice(1)).get("token")!;
+    expect(target.pathname).toBe("/auth/callback");
+    expect(target.hash).toBe("");
+    const code = target.searchParams.get("code")!;
+    const { token } = await controller.exchange({ code });
     expect(tokens.verify(token).sub).toBe(storedUser.id);
   });
 

@@ -17,7 +17,8 @@ NestJS. ADR-0008: a modular monolith — one folder per module under
 ```
 src/
 ├─ modules/
-│  ├─ identity/   Google OAuth sign-in, JWT issuing, the users table
+│  ├─ identity/   Google OAuth sign-in, exchange codes, JWT issuing, the
+│  │              users and auth_exchange_codes tables
 │  ├─ jobs/       Job entity + runner, the Maps Source, /jobs endpoints
 │  ├─ leads/      the Lead Pool, Collected Leads, the LEAD_POOL port
 │  └─ health/     GET /health (@nestjs/terminus)
@@ -40,6 +41,7 @@ internals directly — only through the port, injected via `@Module`.
 | `GET` | `/health` | — | health |
 | `GET` | `/auth/google` | — (starts OAuth) | identity |
 | `GET` | `/auth/google/callback` | — (OAuth redirect target) | identity |
+| `POST` | `/auth/exchange` | — (the exchange code is the credential) | identity |
 | `GET` | `/me` | `JwtAuthGuard` | identity |
 | `POST` | `/jobs` | `JwtAuthGuard` | jobs |
 | `GET` | `/jobs/:id` | `JwtAuthGuard` | jobs |
@@ -66,9 +68,20 @@ keeps going in-process (ADR-0003 — no queue) until the Job row reaches
 
 Google OAuth via `@nestjs/passport`'s `google` strategy → `identity` issues
 its own JWT → the SPA carries it as `Authorization: Bearer` on every call
-after. `GET /auth/google/callback` redirects back to the SPA with the token
-in a URL fragment (`#token=...`), which `apps/web/src/api.ts`'s
-`captureTokenFromUrl` reads once and strips.
+after. The token never travels in a URL:
+
+1. `GET /auth/google/callback` signs the user in, mints a random **exchange
+   code** (single-use, one-minute lifetime; only its SHA-256 is stored, in
+   `auth_exchange_codes`), and redirects to `${WEB_APP_URL}/auth/callback?code=…`.
+2. The SPA's `AuthCallbackPage` strips the code from the URL, then
+   `POST /auth/exchange { code }` (`api.ts`'s `exchangeCode`).
+3. The API deletes the row with one `DELETE … RETURNING` (so two concurrent
+   redemptions cannot both win), checks the expiry, and answers
+   `200 { token }`. An unknown, expired or used code gets the same bare 401.
+4. The SPA stores the JWT in localStorage and loads `/me`.
+
+Codes live in Postgres rather than memory so a restart of the API between the
+redirect and the redemption does not break sign-in.
 
 ## apps/web
 
@@ -85,8 +98,7 @@ src/
 ├─ auth/
 │  ├─ AuthProvider.tsx  who's signed in; exposes { status, user, signOut }
 │  ├─ RequireAuth.tsx   route guard — anonymous visitors bounce to /login
-│  ├─ intended-route.ts remembers where an anonymous visit was headed
-│  └─ legacy-token-fragment.ts  parses the OAuth callback's #token=...
+│  └─ intended-route.ts remembers where an anonymous visit was headed
 ├─ jobs/               starting a Job and watching it run
 │  ├─ queries.ts        useStartJob (mutation) + useJobProgress (polling query)
 │  ├─ SearchForm.tsx    business type / city / state / max results → POST /jobs
@@ -107,7 +119,7 @@ src/
 
 ```
 /login            LoginPage           — public
-/auth/callback     AuthCallbackPage    — public, captures the JWT then redirects
+/auth/callback     AuthCallbackPage    — public, redeems ?code= for the JWT then redirects
 /                  App > HomePage      — behind RequireAuth
 /jobs/:jobId       App > JobProgressPage — behind RequireAuth
 *                  NotFoundPage
