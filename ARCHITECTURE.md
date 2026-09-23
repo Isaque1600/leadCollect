@@ -23,8 +23,9 @@ src/
 │  └─ health/     GET /health (@nestjs/terminus)
 ├─ shared/
 │  ├─ config/     typed env namespaces, validated at boot (env.validation.ts)
-│  └─ db/         the Drizzle client, migrator, connection lifecycle
-└─ main.ts        global ValidationPipe, CORS, shutdown hooks
+│  ├─ db/         the Drizzle client, migrator, connection lifecycle
+│  └─ docs/       setupSwagger: the OpenAPI document, /docs and /docs-json
+└─ main.ts        global ValidationPipe, CORS, Swagger, shutdown hooks
 ```
 
 Inside each module, the dependency only points one way:
@@ -43,6 +44,21 @@ internals directly — only through the port, injected via `@Module`.
 | `GET` | `/me` | `JwtAuthGuard` | identity |
 | `POST` | `/jobs` | `JwtAuthGuard` | jobs |
 | `GET` | `/jobs/:id` | `JwtAuthGuard` | jobs |
+| `GET` | `/docs` | — (Swagger UI) | shared/docs |
+| `GET` | `/docs-json` | — (raw OpenAPI document) | shared/docs |
+
+### API docs (OpenAPI)
+
+`shared/docs/swagger.ts`'s `setupSwagger(app)` builds the OpenAPI document from
+every controller and serves it, in dev and prod alike (see the README, "API
+docs"). `main.ts` and `test/unit/shared/docs/swagger.spec.ts` both call it. The
+`@nestjs/swagger` CLI plugin (`nest-cli.json`) infers schemas from DTO
+**classes** at `nest build`, so each module's `api/` declares response classes
+that `implements` the `@olc/types` interfaces (e.g. `JobProgressResponseDto`).
+Swagger decorators stay in `api/`, never `domain/` or `application/`. A guarded
+route carries `@ApiBearerAuth()`; a route without it is documented as public.
+vitest compiles with SWC and does not run the plugin, so schemas are absent from
+the document in unit tests. The tests check paths and security only.
 
 ### Request flow (an authenticated call, e.g. `POST /jobs`)
 

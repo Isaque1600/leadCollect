@@ -1,4 +1,5 @@
 import { Controller, Get } from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
 import { HealthCheck, HealthCheckService, type HealthCheckResult } from "@nestjs/terminus";
 
 /**
@@ -10,6 +11,7 @@ import { HealthCheck, HealthCheckService, type HealthCheckResult } from "@nestjs
  * With no indicators, Terminus answers `{ status: "ok", info: {}, error: {},
  * details: {} }`, so the SPA's `HealthResponse` contract still holds.
  */
+@ApiTags("health")
 @Controller("health")
 export class HealthController {
   constructor(private readonly health: HealthCheckService) {}
