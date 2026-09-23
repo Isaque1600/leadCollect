@@ -13,5 +13,8 @@ export default defineConfig({
     ...sharedTestConfig.test,
     include: ["test/integration/**/*.spec.ts"],
     passWithNoTests: true,
+    // Every file truncates tables in the one `DATABASE_URL_TEST` database, so
+    // files running side by side would wipe each other's rows mid-test.
+    fileParallelism: false,
   },
 });
