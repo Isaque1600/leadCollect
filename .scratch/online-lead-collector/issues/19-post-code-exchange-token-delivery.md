@@ -18,7 +18,7 @@ recorded as a deliberate tradeoff on PR #2 with this as the hardening path.
 
 **Blocked by:** 02
 
-**Status:** done (branch feature/19-post-code-exchange, PR into `dev`)
+**Status:** done (branch feature/19-post-code-exchange, PR #10 into `dev`)
 
 - [x] `SignInWithGoogle` (or a sibling use-case) mints an exchange code alongside the user
 - [x] The callback redirects to the SPA with `?code=…`, not `#token=…`
