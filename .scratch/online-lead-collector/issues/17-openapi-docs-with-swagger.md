@@ -11,7 +11,7 @@ non-obvious status codes), not every property.
 
 **Blocked by:** 02
 
-**Status:** done (branch feature/17-openapi-swagger, PR pending)
+**Status:** done (branch feature/17-openapi-swagger, PR #11)
 
 - [x] `@nestjs/swagger` installed; the CLI plugin enabled in `nest-cli.json` (`plugins: ["@nestjs/swagger"]`)
 - [x] `SwaggerModule` wired in `main.ts` from a `DocumentBuilder` (title, description, version)
