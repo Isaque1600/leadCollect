@@ -18,17 +18,17 @@ recorded as a deliberate tradeoff on PR #2 with this as the hardening path.
 
 **Blocked by:** 02
 
-**Status:** ready-for-agent
+**Status:** done (branch feature/19-post-code-exchange, PR #10 into `dev`)
 
-- [ ] `SignInWithGoogle` (or a sibling use-case) mints an exchange code alongside the user
-- [ ] The callback redirects to the SPA with `?code=…`, not `#token=…`
-- [ ] `POST /auth/exchange` takes the code and returns the JWT in the response body
-- [ ] Codes are single-use — a second exchange of the same code fails
-- [ ] Codes expire quickly (a minute or two is plenty; the SPA redeems immediately)
-- [ ] An unknown, expired, or already-used code returns 401 with no detail about which
-- [ ] The SPA redeems the code on its callback route and clears it from the URL
-- [ ] `packages/types` carries the request/response shape
-- [ ] Unit tests: happy path, replay, expiry, unknown code
+- [x] `SignInWithGoogle` (or a sibling use-case) mints an exchange code alongside the user
+- [x] The callback redirects to the SPA with `?code=…`, not `#token=…`
+- [x] `POST /auth/exchange` takes the code and returns the JWT in the response body
+- [x] Codes are single-use — a second exchange of the same code fails
+- [x] Codes expire quickly (a minute or two is plenty; the SPA redeems immediately)
+- [x] An unknown, expired, or already-used code returns 401 with no detail about which
+- [x] The SPA redeems the code on its callback route and clears it from the URL
+- [x] `packages/types` carries the request/response shape
+- [x] Unit tests: happy path, replay, expiry, unknown code
 
 ## Notes
 
@@ -47,3 +47,23 @@ recorded as a deliberate tradeoff on PR #2 with this as the hardening path.
 - Out of scope: refresh tokens, token rotation, and moving the JWT out of
   localStorage into a cookie. Those are separate decisions with their own
   tradeoffs — do not fold them in.
+
+## Implementation notes
+
+- **Storage decision (user's call):** a Postgres table, `auth_exchange_codes`,
+  owned by the identity module, keyed by the SHA-256 of the code. Not an
+  in-memory map, because a Render free instance can restart between the redirect
+  and the redemption. Migration `0002_auth_exchange_codes` must be run against
+  each environment's database by hand until ticket 16 adds auto-migrate.
+- A sibling use case, `IssueExchangeCodeUseCase`, mints the code (32 random
+  bytes, base64url, 60 s lifetime). `RedeemExchangeCodeUseCase` takes it
+  (atomic `DELETE … RETURNING` in the adapter), then checks expiry. Every
+  refusal is `InvalidExchangeCodeError`, which the controller maps to a bare 401.
+- The legacy `#token` fragment shim from ticket 18 (`legacy-token-fragment.ts`)
+  and `captureTokenFromUrl` are removed.
+- `vitest.integration.config.ts` now sets `fileParallelism: false`: with two
+  integration files, both truncating `users` in the one test database, they
+  raced.
+- Follow-up, not done: an issued code that is never redeemed (the tab is closed)
+  leaves a row behind. Rows are tiny and cascade with the user; a periodic
+  `DELETE … WHERE expires_at < now()` could be folded into a later cleanup job.
