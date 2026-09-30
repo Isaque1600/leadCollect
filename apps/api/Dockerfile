@@ -6,7 +6,9 @@
 #
 # This image is not the deploy artifact — Render builds from source (render.yaml).
 # Its job is to reproduce a fresh host locally: install from the lockfile, run
-# the build, and start the same `node dist/main.js` Render runs. Run
+# the build, and start the same `node dist/main.js` Render runs (Render runs
+# migrations first, through scripts/start.sh; this prod-only image has no
+# `tsx`, so compose users migrate from the host, see the README). Run
 # `docker compose build` before opening a `dev → main` PR to catch the errors
 # that only appear without a warm `node_modules`/`dist`.
 

@@ -120,6 +120,23 @@ Two isolated environments, each tracking a branch — see
 `render.yaml` defines both API services (its own note there explains why the
 CI-check gate on auto-deploy must stay off). Promotion is a `dev → main` PR.
 
+**Migrations run on every deploy.** Render's start command is
+`apps/api/scripts/start.sh`. It runs `pnpm run db:migrate` against the
+service's `DATABASE_URL_DIRECT`, then `exec`s `node dist/main.js`. Nobody runs
+migrations by hand against Neon. Set `DATABASE_URL_DIRECT` in both Render
+services (Neon's direct, non-pooled URL for that environment's database).
+
+- Drizzle's migrator skips migrations that are already applied, so a restart or
+  a re-deploy with no new migrations does nothing.
+- A failed migration stops the script before the server starts. The deploy
+  fails and Render keeps the previous version serving.
+- The previous version keeps serving while the new one migrates. Keep a
+  migration compatible with the code it replaces: add columns first, and drop
+  them in a later deploy.
+- The free plan has no Pre-Deploy Command, which is why migrations run from the
+  start command. On a paid plan, move `db:migrate` there and set the start
+  command back to `pnpm start`.
+
 ## Contributing
 
 Solo project, not currently accepting outside contributions. See

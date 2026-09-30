@@ -13,6 +13,17 @@
 # so with that option on, dev/main pushes silently stop auto-deploying even
 # though CI is green. main/dev only move via merged, CI-checked PRs anyway
 # (see CLAUDE.md's git workflow), so plain Auto-Deploy-on-push is sufficient.
+#
+# NOTE: migrations run in the start command, not a Pre-Deploy Command (that is
+# paid-only). apps/api/scripts/start.sh runs `pnpm run db:migrate` against
+# DATABASE_URL_DIRECT, then execs `node dist/main.js`. If the migration fails,
+# the script exits before the server starts, the health check never passes,
+# and Render keeps the previous version live. `db:migrate` runs through `tsx`,
+# a devDependency. It is present at runtime because the build installs
+# devDependencies (`nest build` needs @nestjs/cli too) and Render does not
+# prune them afterwards. Don't set NODE_ENV=production here: pnpm would skip
+# devDependencies, which breaks the build and the migration alike. On a paid
+# plan, move the migration to a Pre-Deploy Command and go back to `pnpm start`.
 
 services:
   # --- production: tracks main ---
@@ -24,7 +35,7 @@ services:
     branch: main
     rootDir: apps/api
     buildCommand: pnpm install --frozen-lockfile; pnpm run build
-    startCommand: pnpm start
+    startCommand: sh scripts/start.sh # migrate, then exec the server (see the note above)
     healthCheckPath: /health
     envVars:
       - key: NODE_VERSION
@@ -55,7 +66,7 @@ services:
     branch: dev
     rootDir: apps/api
     buildCommand: pnpm install --frozen-lockfile; pnpm run build
-    startCommand: pnpm start
+    startCommand: sh scripts/start.sh # migrate, then exec the server (see the note above)
     healthCheckPath: /health
     envVars:
       - key: NODE_VERSION
