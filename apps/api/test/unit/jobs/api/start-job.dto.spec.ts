@@ -38,6 +38,14 @@ describe("StartJobDto", () => {
     );
   });
 
+  it("says a blank field should not be empty, since the SPA shows the message", async () => {
+    const error = await validate({ ...validBody, city: "  " }).catch((e: unknown) => e);
+
+    expect((error as BadRequestException).getResponse()).toMatchObject({
+      message: ["city should not be empty"],
+    });
+  });
+
   it.each([0, 21, 2.5, "muitos"])("rejects maxResults %p", async (maxResults) => {
     await expect(validate({ ...validBody, maxResults })).rejects.toBeInstanceOf(
       BadRequestException,

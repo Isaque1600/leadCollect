@@ -9,6 +9,16 @@ import {
   Post,
   UseGuards,
 } from "@nestjs/common";
+import {
+  ApiBadRequestResponse,
+  ApiBearerAuth,
+  ApiCreatedResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiParam,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from "@nestjs/swagger";
 import type { JobProgressResponse, StartJobResponse } from "@olc/types";
 import { CurrentUser } from "../../identity/api/current-user.decorator";
 import { JwtAuthGuard } from "../../identity/api/jwt-auth.guard";
@@ -16,6 +26,7 @@ import type { User } from "../../identity/domain/user";
 import { StartMapsJobUseCase } from "../application/start-maps-job.use-case";
 import type { Job } from "../domain/job";
 import { JOBS, type Jobs } from "../domain/jobs.port";
+import { JobProgressResponseDto, StartJobResponseDto } from "./job-responses.dto";
 import { StartJobDto } from "./start-job.dto";
 
 /** The Job as the SPA polls it — no `userId`, no raw params. */
@@ -32,6 +43,15 @@ function toProgress(job: Job): JobProgressResponse {
   };
 }
 
+/**
+ * With the `@nestjs/swagger` plugin's `introspectComments` on, a route's doc
+ * comment becomes its operation in the OpenAPI document: the summary, then
+ * `@remarks` as the description. Those comments are written for API callers;
+ * notes for maintainers go in `//` comments after them.
+ */
+@ApiTags("jobs")
+@ApiBearerAuth()
+@ApiUnauthorizedResponse({ description: "Missing, invalid or expired token." })
 @Controller("jobs")
 @UseGuards(JwtAuthGuard)
 export class JobsController {
@@ -41,13 +61,16 @@ export class JobsController {
   ) {}
 
   /**
-   * Starts a Job and answers straight away with its id and `queued` status; the
-   * work happens in-process afterwards (ADR-0003) and the SPA polls `GET
-   * /jobs/:id`.
+   * Starts a Maps Job.
    *
-   * The one-running-Job-per-user rule (a 409) belongs to ticket 09.
+   * @remarks Answers straight away with the Job's id and `queued` status. The
+   * work runs afterwards; poll `GET /jobs/{id}` for progress.
    */
+  // The work runs in-process (ADR-0003). The one-running-Job-per-user rule (a
+  // 409) belongs to ticket 09.
   @Post()
+  @ApiCreatedResponse({ type: StartJobResponseDto })
+  @ApiBadRequestResponse({ description: "The body failed validation." })
   async start(@CurrentUser() user: User, @Body() body: StartJobDto): Promise<StartJobResponse> {
     const job = await this.startMapsJob.execute(user.id, {
       businessType: body.businessType,
@@ -59,12 +82,19 @@ export class JobsController {
   }
 
   /**
-   * A user may only read their own Jobs. The lookup is scoped by user id in the
-   * query, and someone else's Job is a 404 rather than a 403 — a 403 would
-   * confirm the id exists. `ParseUUIDPipe` (Nest's own) turns a malformed id
-   * into a 400 instead of letting Postgres reject the cast.
+   * Reads a Job's progress.
+   *
+   * @remarks Only the caller's own Jobs are visible. Another user's Job is a
+   * 404, not a 403, so the answer never confirms that the id exists.
    */
+  // The lookup is scoped by user id in the query. `ParseUUIDPipe` (Nest's own)
+  // turns a malformed id into a 400 instead of letting Postgres reject the cast.
+  // The document cannot see the pipe, so `@ApiParam` states the `uuid` format.
   @Get(":id")
+  @ApiParam({ name: "id", format: "uuid", description: "The Job's id." })
+  @ApiOkResponse({ type: JobProgressResponseDto })
+  @ApiBadRequestResponse({ description: "The id is not a UUID." })
+  @ApiNotFoundResponse({ description: "No such Job, or it belongs to another user." })
   async progress(
     @CurrentUser() user: User,
     @Param("id", ParseUUIDPipe) id: string,

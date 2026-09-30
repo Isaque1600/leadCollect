@@ -4,6 +4,7 @@ import { ConfigType } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
 import { appConfig } from "./shared/config/app.config";
+import { setupSwagger } from "./shared/docs/swagger";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -25,6 +26,11 @@ async function bootstrap() {
     methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   });
+
+  // `/docs` and `/docs-json` are served in every environment, prod included.
+  // That is a deliberate choice (README, "API docs"): the API surface is not
+  // secret, and guarded routes still need a JWT from Swagger UI too.
+  setupSwagger(app);
 
   // Lets DbModule's onApplicationShutdown drain the Postgres pool on SIGTERM.
   app.enableShutdownHooks();
