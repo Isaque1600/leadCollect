@@ -71,16 +71,69 @@ secrets (`VERCEL_DEPLOY_HOOK_MAIN` / `_DEV`).
 | --- | --- | --- |
 | 01 | Walking skeleton | done |
 | 02 | Google login | done (merged, PR #2) |
-| 03–10 | Maps job, enrichment, Serper source, Lead Pool, quota, cancel/reaper, xlsx export | not started |
+| 03 | Maps source job backend | done (merged, PR #5) |
+| 04 | Maps source job frontend | done (merged, PR #7) |
+| 05 | Enrichment + Stale Lead refresh | done (merged, PR #8, 2026-09-30) — owner decisions open, see below |
+| 06–10 | Serper source, Lead Pool, quota, cancel/reaper, xlsx export | ready-for-agent |
 | 11 | GitHub repo + push | done |
 | 12 | Deploy API to Render | done |
 | 13 | Deploy SPA to Vercel | done |
 | 14 | Explicit CI steps | done |
-| 15 | Local Docker Compose env | not started |
-| 16 | Migrations on deploy | in review (branch `feature/16-migrate-on-deploy`) |
-| 17 | OpenAPI docs via @nestjs/swagger | not started |
-| 18 | SPA routing, protected routes, app shell | ready-for-agent — blocks 04 |
-| 19 | POST code exchange for token delivery | ready-for-agent — do after 18 |
+| 15 | Local Docker Compose env | done (merged, PR #6) |
+| 16 | Migrations on deploy | done (merged, PR #9, 2026-09-30) — first real deploy not yet verified |
+| 17 | OpenAPI docs via @nestjs/swagger | in review (PR #11) — rebase onto #10 pending |
+| 18 | SPA routing, protected routes, app shell | done (merged, PR #4) |
+| 19 | POST code exchange for token delivery | in review (PR #10) — rebased 2026-09-30, migration now `0003` |
+| 20 | Jobs list | ready-for-agent |
+| 21 | SPA route map decision | ready-for-human |
+
+### Merged 2026-09-30: PR #9 (ticket 16) and PR #8 (ticket 05)
+
+Merged into `dev` in that order (`51352bb`, `24614c0`). Not on `main` yet.
+
+**PR #9: migrations run on every deploy.**
+
+- Both Render services now start through `apps/api/scripts/start.sh`
+  (`render.yaml` `startCommand: sh scripts/start.sh`). It runs `pnpm run
+  db:migrate` against `DATABASE_URL_DIRECT`, then `exec node dist/main.js`.
+- If a migration fails, the script exits non-zero and the server never starts.
+  The health check fails, so Render keeps the previous version serving.
+- The old version keeps serving while the new one migrates. A migration must
+  stay compatible with the code it replaces.
+- `tsx` (a devDependency) runs the migrator in production. That works because
+  Render's build installs devDependencies and does not prune them. **Never set
+  `NODE_ENV=production` on Render:** it breaks both the build and the migration.
+- Every cold start on the free plan runs the migrator, which adds about 1–2 s.
+  If Neon is unreachable when the service wakes, the service does not start at
+  all, even though `/health` is liveness-only (ADR-0008). This is an accepted
+  trade-off.
+- Two migrations that share a number (two `0002_*`) must never be hand-merged.
+  Drizzle's migrator skips any migration whose journal `when` is older than the
+  newest applied one, so a hand-merged journal can "deploy successfully" while
+  silently skipping a migration. Whichever PR lands second reruns
+  `pnpm --filter @olc/api db:generate` after rebasing. PR #10 was fixed this way.
+
+**PR #8: Enrichment + Stale Lead refresh.**
+
+- New `enrichment` module (`jobs → enrichment → leads`). It ports the
+  email/WhatsApp/phone regexes and the `robots.txt` check from
+  `collector_maps.py`. It visits a Lead's site during the Job if the Lead has
+  never been enriched, and in the background (not awaited) if it is a Stale Lead
+  (older than 30 days).
+- Migration `0002_enrichment` adds the nullable `leads.enriched_at`. There are
+  no new env vars, dependencies or config.
+- Phone precedence: site WhatsApp → Places `nationalPhoneNumber` → phone found
+  on the site → the stored phone. This order also holds on re-Enrichment; the
+  review round fixed that.
+- The site fetcher is fenced against SSRF. It allows only http(s), and refuses
+  loopback, private, link-local/metadata, CGNAT, ULA and NAT64 addresses. It
+  checks at DNS lookup time and again on every redirect hop (at most 5
+  redirects). It also caps the body at 2 MB, decompressed.
+- `robots.txt`: 401/403 disallow everything, any other 4xx allows, and 5xx
+  allows (CPython disallows on 5xx).
+- An awaited inline Enrichment can take about 21 s per new Lead in the worst
+  case (two 10 s timeouts plus 2 × 500 ms). Keep that in mind for ticket 09's
+  15-minute reaper.
 
 ## What the API looks like now (landed in PR #2)
 
@@ -140,7 +193,42 @@ New first-party deps, both named in ADR-0008: `@nestjs/config`,
 
 ## Outstanding human actions
 
-Nothing blocking — auth is live in both environments. What is left is tidy-up:
+### From PRs #9 and #8 (merged into `dev` 2026-09-30)
+
+1. **Check that `DATABASE_URL_DIRECT` is set on `leadCollect-Dev`** in the Render
+   dashboard. `render.yaml` declares it `sync: false`, and migrations used to run
+   from a local env file, so the dashboard value may be missing. If it is
+   missing, the deploy fails and the previous version keeps serving.
+2. **Verify the first migrate-on-deploy on `leadCollect-Dev`** (ticket 16's last
+   open criterion). The `24614c0` deploy log should show `migrations applied`
+   before the server starts. `0002_enrichment` should be applied, so Neon dev's
+   `leads` table should now have an `enriched_at` column. `/health` returned 200
+   on 2026-09-30, but that does not show which commit is running.
+3. **Before the next `dev → main` PR:** set `DATABASE_URL_DIRECT` on
+   `leadCollect-Prod` as well. That deploy applies `0002_enrichment` (plus
+   `0003_auth_exchange_codes` if PR #10 has landed) to Neon prod by itself.
+   Nothing needs running by hand.
+4. **Owner decisions left open by PR #8** (ticket 05):
+   - Keep the hand-rolled `robots.txt` parser (`enrichment/domain/robots-txt.ts`),
+     or swap it for the `robots-parser` npm package?
+   - Should a 5xx `robots.txt` disallow everything, as CPython does? Today it
+     allows.
+   - When every source has dropped a Lead's phone, should the stored phone still
+     be kept (the `?? phone` fallback)? Today it is kept.
+5. **Optional follow-ups from the PR #8 review** (not tickets yet):
+   - Block 6to4 (`2002::/16`) and Teredo (`2001::/32`) in
+     `enrichment/infra/public-address.ts`.
+   - Add a committed integration test that drives the real `HttpWebsiteFetcher`
+     into Postgres. Today the integration suite uses a scripted fetcher.
+   - Decode stacked `Content-Encoding` (`gzip, br`) and raw deflate. Today those
+     pages come back unreadable, which fails safe.
+6. **Optional follow-ups from the PR #9 review:**
+   - Set `onnotice` in `src/shared/db/migrate.ts` to silence the two `NOTICE …
+     already exists, skipping` lines on every run.
+   - Document the cold-start trade-off (Neon down at wake means no service) in the
+     README deploy section.
+
+### Older tidy-up
 
 1. **Two stale agent worktrees** under `.claude/worktrees/`
    (`agent-a38fb8837fc74fe8b`, `agent-ac228d1989b458fd6`) still hold old

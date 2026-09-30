@@ -9,7 +9,7 @@ Lead), that Lead is re-enriched in the background without blocking the Job.
 
 **Blocked by:** 03
 
-**Status:** done (branch `feature/05-enrichment-stale-refresh`)
+**Status:** done (merged into `dev` via PR #8, 2026-09-30; owner decisions and follow-ups listed in `HANDOFF.md`)
 
 - [x] robots.txt check, inter-request delay, and the email/WhatsApp/phone regexes ported from the Python script
 - [x] Phone precedence preserved: site WhatsApp → national phone from Places → phone found on site
