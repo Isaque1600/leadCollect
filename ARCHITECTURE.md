@@ -19,6 +19,7 @@ src/
 ├─ modules/
 │  ├─ identity/   Google OAuth sign-in, JWT issuing, the users table
 │  ├─ jobs/       Job entity + runner, the Maps Source, /jobs endpoints
+│  ├─ enrichment/ visiting a Lead's website for email/WhatsApp/phone
 │  ├─ leads/      the Lead Pool, Collected Leads, the LEAD_POOL port
 │  └─ health/     GET /health (@nestjs/terminus)
 ├─ shared/
@@ -29,10 +30,10 @@ scripts/start.sh  Render's start command: migrate, then exec the server
 ```
 
 Inside each module, the dependency only points one way:
-`jobs → leads → (nothing)`, `identity → (nothing)`. A module's `domain/`
-declares ports (interfaces); its own `infra/` implements them with Drizzle.
-Nothing outside a module reaches into another module's `infra/` or `domain/`
-internals directly — only through the port, injected via `@Module`.
+`jobs → enrichment → leads → (nothing)`, `identity → (nothing)`. A module's
+`domain/` declares ports (interfaces); its own `infra/` implements them with
+Drizzle. Nothing outside a module reaches into another module's `infra/` or
+`domain/` internals directly — only through the port, injected via `@Module`.
 
 ### Routes today
 
@@ -62,6 +63,52 @@ SPA (apiFetch, Bearer token)
 out": `POST /jobs` returns immediately with a `queued` Job, and the runner
 keeps going in-process (ADR-0003 — no queue) until the Job row reaches
 `done`/`failed`. The SPA polls `GET /jobs/:id` for progress.
+
+### Enrichment
+
+Every Lead a Job collects is handed to the `ENRICHMENT` port right after it is
+upserted into the pool, and the enrichment module decides what it deserves:
+
+| The Lead | What happens |
+| --- | --- |
+| no website | nothing — it keeps only what Places returned |
+| `enriched_at IS NULL` | its site is visited **during** the Job, awaited |
+| `enriched_at` older than 30 days (a Stale Lead) | re-visited in the background, not awaited — the Job finishes without it |
+| enriched within 30 days | nothing |
+
+A visit is `robots.txt` first, then the page, with a 500 ms delay between every
+outgoing request and a 10 s timeout — the Python collector's numbers, ported per
+ADR-0004. Email, WhatsApp and phone come out by regex; the phone that lands on
+the Lead is the site's WhatsApp, else the `nationalPhoneNumber` from Places,
+else a phone found on the page. `JobRunner` hands the Places phone from the
+current Job to Enrichment alongside the Lead (`EnrichmentTarget.placesPhone`),
+because after a first Enrichment the stored `leads.phone` is Enrichment's own
+pick — a Stale Lead's re-Enrichment re-applies the precedence with the fresh
+Places value. A site that will not load is never an error: the
+Lead simply keeps what it had, with `enriched_at` stamped so the dead site is not
+re-visited by every Job for the next 30 days.
+
+`robots.txt` is read the way CPython's `RobotFileParser` reads it: a 401/403
+disallows the whole site, any other 4xx allows it, a success is parsed. No
+response at all (and, unlike CPython, a 5xx) fails open, as `pode_acessar` did.
+
+`HttpWebsiteFetcher` is the only code that fetches URLs we did not choose, so it
+is fenced against SSRF, on `node:http`/`node:https` rather than `fetch` because
+only those take a custom `lookup` without adding `undici`:
+
+- `http:`/`https:` only;
+- the socket may only connect to a public unicast address — loopback, private,
+  link-local (cloud metadata), CGNAT, unspecified, multicast, NAT64 and
+  IPv4-mapped forms of those are refused (`infra/public-address.ts`). The check
+  runs inside the socket's own DNS `lookup`, so what is checked is what is
+  connected to (no DNS-rebinding window); IP-literal hosts are checked directly;
+- redirects are followed by hand, at most 5, each hop re-checked;
+- bodies are streamed and aborted past 2 MB (decoded bytes, so gzip bombs too).
+
+"In the background" is a floating promise inside the same process, exactly as
+`StartMapsJobUseCase` runs the Job itself — no queue and no scheduler (ADR-0003).
+Enrichment owns `leads.email`, `leads.phone` and `leads.enriched_at`; the Maps
+Source's upsert deliberately does not touch `email` or `enriched_at`.
 
 ### Auth
 

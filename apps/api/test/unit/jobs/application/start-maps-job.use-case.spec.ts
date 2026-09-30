@@ -1,13 +1,19 @@
 import { describe, expect, it } from "vitest";
 import { JobRunner } from "../../../../src/modules/jobs/application/job-runner.service";
 import { StartMapsJobUseCase } from "../../../../src/modules/jobs/application/start-maps-job.use-case";
+import { FakeEnrichment } from "../../enrichment/fake-enrichment";
 import { FakeLeadPool } from "../../leads/fake-lead-pool";
 import { FakeJobs, FakeMapsSource, USER_ID, jobParams } from "../fake-jobs";
 
 describe("StartMapsJobUseCase", () => {
   it("persists a queued Job owned by the requesting user and returns it immediately", async () => {
     const jobs = new FakeJobs();
-    const runner = new JobRunner(jobs, new FakeMapsSource([]), new FakeLeadPool());
+    const runner = new JobRunner(
+      jobs,
+      new FakeMapsSource([]),
+      new FakeLeadPool(),
+      new FakeEnrichment(),
+    );
 
     const job = await new StartMapsJobUseCase(jobs, runner).execute(USER_ID, jobParams);
 
@@ -31,7 +37,7 @@ describe("StartMapsJobUseCase", () => {
     const jobs = new FakeJobs();
     const maps = new FakeMapsSource([{ placeId: "place-a", name: "Clínica A" }]);
     const leadPool = new FakeLeadPool();
-    const runner = new JobRunner(jobs, maps, leadPool);
+    const runner = new JobRunner(jobs, maps, leadPool, new FakeEnrichment());
 
     await new StartMapsJobUseCase(jobs, runner).execute(USER_ID, jobParams);
     // The run is deliberately not awaited; let the microtask queue drain.

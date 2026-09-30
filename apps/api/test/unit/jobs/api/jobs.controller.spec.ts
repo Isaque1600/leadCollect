@@ -6,6 +6,7 @@ import { JobRunner } from "../../../../src/modules/jobs/application/job-runner.s
 import { StartMapsJobUseCase } from "../../../../src/modules/jobs/application/start-maps-job.use-case";
 import type { User } from "../../../../src/modules/identity/domain/user";
 import { storedUser } from "../../identity/fake-users";
+import { FakeEnrichment } from "../../enrichment/fake-enrichment";
 import { FakeLeadPool } from "../../leads/fake-lead-pool";
 import { FakeJobs, FakeMapsSource, OTHER_USER_ID, jobParams } from "../fake-jobs";
 
@@ -19,7 +20,12 @@ const otherUser: User = { ...storedUser, id: OTHER_USER_ID, googleId: "g-999" };
  * rather than racing the (deliberately un-awaited) run.
  */
 function makeController(jobs = new FakeJobs()) {
-  const runner = new JobRunner(jobs, new FakeMapsSource([]), new FakeLeadPool());
+  const runner = new JobRunner(
+    jobs,
+    new FakeMapsSource([]),
+    new FakeLeadPool(),
+    new FakeEnrichment(),
+  );
   return { jobs, controller: new JobsController(new StartMapsJobUseCase(jobs, runner), jobs) };
 }
 

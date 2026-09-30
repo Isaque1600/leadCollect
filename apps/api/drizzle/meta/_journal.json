@@ -15,6 +15,13 @@
       "when": 1788388439517,
       "tag": "0001_jobs_leads_user_leads",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788461034101,
+      "tag": "0002_enrichment",
+      "breakpoints": true
     }
   ]
 }
