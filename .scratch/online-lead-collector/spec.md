@@ -1,7 +1,7 @@
 # Online Lead Collector
 
 Take the existing lead-collector CLI online as a multi-user web app: Google login,
-a search form over two Sources (Google Maps / Brave web search), a shared Lead
+a search form over two Sources (Google Maps / Serper web search), a shared Lead
 Pool that minimizes paid API calls, per-user Quota, an in-process Job runner with
 progress polling, and per-Job xlsx export.
 
@@ -17,7 +17,7 @@ decisions this breakdown assumes.
 | 03 | Maps Source job — backend | 02 |
 | 04 | Maps Source job — frontend | 03 |
 | 05 | Enrichment + Stale Lead refresh | 03 |
-| 06 | Web Search Source (Brave) | 05 |
+| 06 | Web Search Source (Serper) | 05 |
 | 07 | Lead Pool cache-first lookup | 06 |
 | 08 | Quota enforcement | 07 |
 | 09 | Job concurrency, cancel, reaper | 04 |

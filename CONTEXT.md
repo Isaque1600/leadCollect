@@ -42,7 +42,7 @@ _Avoid_: Run, task, scrape, batch, collection
 
 **Source**:
 An origin that a Job queries for Leads. There are two: the **Maps Source**
-(Google Places API) and the **Web Search Source** (Brave Search API). The
+(Google Places API) and the **Web Search Source** (Serper.dev search API). The
 Portuguese labels `Google Maps` and `Busca Web` are kept as the `fonte` value in
 exports.
 _Avoid_: Provider (reserved for the code interface), channel, origin
@@ -65,5 +65,5 @@ _Avoid_: Limit, credits, budget
 
 **Billable Call**:
 A single request that costs money: one Google Places details request, or one
-Brave search request. Lead Pool hits are not Billable Calls.
+Serper search request. Lead Pool hits are not Billable Calls.
 _Avoid_: API call, request, hit

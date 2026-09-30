@@ -1,7 +1,7 @@
 # 08: Quota enforcement
 
 **What to build:** Each user has a monthly allowance of Billable Calls (a Google
-Places details request or a Brave search request; Lead Pool hits are free). The
+Places details request or a Serper search request; Lead Pool hits are free). The
 default is 500 per user per month, tracked on `users.monthly_quota_used` and reset
 on the 1st. While a user has allowance, Jobs run normally. Once it is exhausted,
 their Jobs still run but make no further Billable Calls — they return Lead Pool

@@ -7,7 +7,7 @@ Billable Calls only on the shortfall.
 
 The obvious multi-tenant design isolates each tenant's data. We deliberately did
 not, because the dominant cost of this product is paid API calls (Google Places,
-Brave), and most users searching the same city and business type want the same
+Serper), and most users searching the same city and business type want the same
 companies. Sharing the pool turns the second user's search into a near-free
 database read.
 

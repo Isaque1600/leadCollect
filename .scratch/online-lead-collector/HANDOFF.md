@@ -5,7 +5,7 @@ Written 2026-09-02. Read this first when resuming; it points at everything else.
 ## What the project is
 
 A multi-user web app that takes an existing Python lead-collector CLI online.
-Users sign in with Google, run a search against Google Maps and/or Brave web
+Users sign in with Google, run a search against Google Maps and/or Serper web
 search, and download the Leads they collected as an Excel file. A shared **Lead
 Pool** minimises paid API calls; a per-user **Quota** caps spend.
 
@@ -70,7 +70,7 @@ secrets (`VERCEL_DEPLOY_HOOK_MAIN` / `_DEV`).
 | --- | --- | --- |
 | 01 | Walking skeleton | done |
 | 02 | Google login | done (merged, PR #2) |
-| 03–10 | Maps job, enrichment, Brave source, Lead Pool, quota, cancel/reaper, xlsx export | not started |
+| 03–10 | Maps job, enrichment, Serper source, Lead Pool, quota, cancel/reaper, xlsx export | not started |
 | 11 | GitHub repo + push | done |
 | 12 | Deploy API to Render | done |
 | 13 | Deploy SPA to Vercel | done |
