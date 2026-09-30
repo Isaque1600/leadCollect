@@ -1,5 +1,5 @@
 import { Controller, Get } from "@nestjs/common";
-import { ApiTags } from "@nestjs/swagger";
+import { ApiOkResponse, ApiTags } from "@nestjs/swagger";
 import { HealthCheck, HealthCheckService, type HealthCheckResult } from "@nestjs/terminus";
 
 /**
@@ -16,8 +16,27 @@ import { HealthCheck, HealthCheckService, type HealthCheckResult } from "@nestjs
 export class HealthController {
   constructor(private readonly health: HealthCheckService) {}
 
+  /** Liveness probe: answers 200 while the process is up. */
+  // Terminus's own OpenAPI entry shows a `database` indicator in its example and
+  // a 503, and neither can happen here. `swaggerDocumentation: false` drops it,
+  // and `@ApiOkResponse` documents the body this route actually sends.
+  // `noCache` is Terminus's default; passing an options object replaces the
+  // defaults, so it has to be restated.
   @Get()
-  @HealthCheck()
+  @HealthCheck({ noCache: true, swaggerDocumentation: false })
+  @ApiOkResponse({
+    description: "The process is up.",
+    schema: {
+      type: "object",
+      properties: {
+        status: { type: "string", enum: ["ok"] },
+        info: { type: "object" },
+        error: { type: "object" },
+        details: { type: "object" },
+      },
+      example: { status: "ok", info: {}, error: {}, details: {} },
+    },
+  })
   check(): Promise<HealthCheckResult> {
     return this.health.check([]);
   }

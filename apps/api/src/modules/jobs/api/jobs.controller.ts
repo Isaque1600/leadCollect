@@ -15,6 +15,7 @@ import {
   ApiCreatedResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
+  ApiParam,
   ApiTags,
   ApiUnauthorizedResponse,
 } from "@nestjs/swagger";
@@ -42,6 +43,12 @@ function toProgress(job: Job): JobProgressResponse {
   };
 }
 
+/**
+ * With the `@nestjs/swagger` plugin's `introspectComments` on, a route's doc
+ * comment becomes its operation in the OpenAPI document: the summary, then
+ * `@remarks` as the description. Those comments are written for API callers;
+ * notes for maintainers go in `//` comments after them.
+ */
 @ApiTags("jobs")
 @ApiBearerAuth()
 @ApiUnauthorizedResponse({ description: "Missing, invalid or expired token." })
@@ -54,12 +61,13 @@ export class JobsController {
   ) {}
 
   /**
-   * Starts a Job and answers straight away with its id and `queued` status; the
-   * work happens in-process afterwards (ADR-0003) and the SPA polls `GET
-   * /jobs/:id`.
+   * Starts a Maps Job.
    *
-   * The one-running-Job-per-user rule (a 409) belongs to ticket 09.
+   * @remarks Answers straight away with the Job's id and `queued` status. The
+   * work runs afterwards; poll `GET /jobs/{id}` for progress.
    */
+  // The work runs in-process (ADR-0003). The one-running-Job-per-user rule (a
+  // 409) belongs to ticket 09.
   @Post()
   @ApiCreatedResponse({ type: StartJobResponseDto })
   @ApiBadRequestResponse({ description: "The body failed validation." })
@@ -74,12 +82,16 @@ export class JobsController {
   }
 
   /**
-   * A user may only read their own Jobs. The lookup is scoped by user id in the
-   * query, and someone else's Job is a 404 rather than a 403 — a 403 would
-   * confirm the id exists. `ParseUUIDPipe` (Nest's own) turns a malformed id
-   * into a 400 instead of letting Postgres reject the cast.
+   * Reads a Job's progress.
+   *
+   * @remarks Only the caller's own Jobs are visible. Another user's Job is a
+   * 404, not a 403, so the answer never confirms that the id exists.
    */
+  // The lookup is scoped by user id in the query. `ParseUUIDPipe` (Nest's own)
+  // turns a malformed id into a 400 instead of letting Postgres reject the cast.
+  // The document cannot see the pipe, so `@ApiParam` states the `uuid` format.
   @Get(":id")
+  @ApiParam({ name: "id", format: "uuid", description: "The Job's id." })
   @ApiOkResponse({ type: JobProgressResponseDto })
   @ApiBadRequestResponse({ description: "The id is not a UUID." })
   @ApiNotFoundResponse({ description: "No such Job, or it belongs to another user." })

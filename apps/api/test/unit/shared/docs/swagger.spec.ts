@@ -14,8 +14,9 @@ import { setupSwagger } from "../../../../src/shared/docs/swagger";
  * imported, so the variables are set in `vi.hoisted`, ahead of the imports.
  *
  * vitest compiles with SWC, which does not run the `@nestjs/swagger` CLI
- * plugin, so plugin-inferred schemas are absent here. These tests pin paths and
- * security, which do not depend on the plugin.
+ * plugin, so plugin-inferred schemas are absent here. These tests pin what does
+ * not depend on the plugin: paths, security, and the few hand-written
+ * decorators (`@ApiParam`, `@ApiProperty`, `/health`'s `@ApiOkResponse`).
  */
 vi.hoisted(() => {
   Object.assign(process.env, {
@@ -70,6 +71,33 @@ describe("OpenAPI docs", () => {
   it.each(["/health", "/auth/google", "/auth/google/callback"])("leaves GET %s public", (path) => {
     expect(document.security ?? []).toEqual([]);
     expect(document.paths[path]?.get?.security ?? []).toEqual([]);
+  });
+
+  it("documents the Job id as a UUID, the format ParseUUIDPipe enforces", () => {
+    const params = document.paths["/jobs/{id}"]?.get?.parameters ?? [];
+
+    expect(params).toContainEqual(
+      expect.objectContaining({
+        name: "id",
+        in: "path",
+        schema: { type: "string", format: "uuid" },
+      }),
+    );
+  });
+
+  it("documents maxResults as an integer", () => {
+    const schema = document.components?.schemas?.StartJobDto as
+      | { properties?: Record<string, { type?: string }> }
+      | undefined;
+
+    expect(schema?.properties?.maxResults?.type).toBe("integer");
+  });
+
+  it("documents /health as liveness only, with no database indicator", () => {
+    const responses = document.paths["/health"]?.get?.responses ?? {};
+
+    expect(Object.keys(responses)).toEqual(["200"]);
+    expect(JSON.stringify(responses)).not.toContain("database");
   });
 
   describe("over HTTP", () => {

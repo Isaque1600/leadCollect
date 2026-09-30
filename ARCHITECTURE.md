@@ -55,8 +55,16 @@ docs"). `main.ts` and `test/unit/shared/docs/swagger.spec.ts` both call it. The
 `@nestjs/swagger` CLI plugin (`nest-cli.json`) infers schemas from DTO
 **classes** at `nest build`, so each module's `api/` declares response classes
 that `implements` the `@olc/types` interfaces (e.g. `JobProgressResponseDto`).
-Swagger decorators stay in `api/`, never `domain/` or `application/`. A guarded
-route carries `@ApiBearerAuth()`; a route without it is documented as public.
+The plugin reads class-validator decorators into constraints (`@MinLength`,
+`@MaxLength`, `@Min`, `@Max`), and with `introspectComments` it publishes doc
+comments: a DTO property's comment becomes its description, and a route
+handler's comment becomes the operation summary, with `@remarks` as the
+description. Those comments are therefore written for API callers, and notes
+for maintainers go in `//` comments. Hand-written `@ApiProperty`/`@ApiParam`
+covers only what the plugin cannot see (`maxResults` as `integer`, the `uuid`
+format that `ParseUUIDPipe` enforces on `/jobs/{id}`). Swagger decorators stay
+in `api/`, never `domain/` or `application/`. A guarded route carries
+`@ApiBearerAuth()`; a route without it is documented as public.
 vitest compiles with SWC and does not run the plugin, so schemas are absent from
 the document in unit tests. The tests check paths and security only.
 

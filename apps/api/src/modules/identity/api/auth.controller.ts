@@ -18,6 +18,12 @@ import { CurrentUser } from "./current-user.decorator";
 import { JwtAuthGuard } from "./jwt-auth.guard";
 import { MeResponseDto } from "./me-response.dto";
 
+/**
+ * With the `@nestjs/swagger` plugin's `introspectComments` on, a route's doc
+ * comment becomes its operation in the OpenAPI document: the summary, then
+ * `@remarks` as the description. Those comments are written for API callers;
+ * notes for maintainers go in `//` comments after them.
+ */
 @ApiTags("auth")
 @Controller()
 export class AuthController {
@@ -36,9 +42,11 @@ export class AuthController {
   }
 
   /**
-   * Google redirects back here. We sign the user in, mint a JWT, and bounce the
-   * browser to the SPA with the token in the URL fragment (kept out of logs and
-   * the Referer header).
+   * Google redirects back here after consent.
+   *
+   * @remarks Signs the user in, issues a JWT, and redirects the browser to the
+   * SPA with the token in the URL fragment, which keeps it out of server logs
+   * and the Referer header.
    */
   @Get("auth/google/callback")
   @UseGuards(AuthGuard("google"))
@@ -50,6 +58,7 @@ export class AuthController {
     res.redirect(`${this.config.webAppUrl}/#token=${encodeURIComponent(token)}`);
   }
 
+  /** The signed-in user, with this month's Quota use. */
   @Get("me")
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()

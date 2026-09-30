@@ -37,6 +37,19 @@ Before building API plumbing, check what NestJS already ships (installed
 - **`@nestjs/terminus`** — the health module uses `HealthCheckService`. Its
   response keeps a top-level `status: "ok"`, so the SPA's `HealthResponse`
   contract is unchanged.
+- **`@nestjs/swagger`** — `shared/docs/` builds the OpenAPI document with
+  `SwaggerModule` and serves it at `/docs` (Swagger UI) and `/docs-json`. The
+  CLI plugin (`nest-cli.json`, with `introspectComments`) generates the schemas
+  at `nest build` from the DTO classes' TypeScript types, class-validator
+  decorators and doc comments, so hand-written `@ApiProperty` is the exception.
+  Use it only for what the plugin cannot infer, such as `integer`. Request and
+  response DTOs are classes in the owning module's `api/` folder, named
+  `*.dto.ts` so the plugin finds them. Each DTO class `implements` its
+  `@olc/types` interface, which stays the contract the SPA compiles against.
+  With `introspectComments`, doc comments on DTO properties and route handlers
+  are published as descriptions, so they are written for API callers.
+  Swagger decorators live in `api/` (and `shared/docs/`), never in `domain/` or
+  `application/`.
 
 `/health` deliberately reports **liveness only** — it does not include a database
 indicator. Render probes this path on every deploy, so a database blip reporting
