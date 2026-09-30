@@ -6,14 +6,19 @@ import { jwtConfig } from "../../shared/config/jwt.config";
 import { AuthController } from "./api/auth.controller";
 import { GoogleStrategy } from "./api/google.strategy";
 import { JwtAuthGuard } from "./api/jwt-auth.guard";
+import { IssueExchangeCodeUseCase } from "./application/issue-exchange-code.use-case";
+import { RedeemExchangeCodeUseCase } from "./application/redeem-exchange-code.use-case";
 import { SignInWithGoogleUseCase } from "./application/sign-in-with-google.use-case";
 import { TokensService } from "./application/tokens.service";
+import { EXCHANGE_CODES } from "./domain/exchange-codes.port";
 import { USERS } from "./domain/users.port";
+import { DrizzleExchangeCodes } from "./infra/drizzle-exchange-codes.repository";
 import { DrizzleUsersRepository } from "./infra/drizzle-users.repository";
 
 /**
- * Who the signed-in user is: Google sign-in, the `users` table, and the bearer
- * token every other module's routes are guarded by.
+ * Who the signed-in user is: Google sign-in, the `users` table, the exchange
+ * codes that hand the SPA its token, and the bearer token every other module's
+ * routes are guarded by.
  *
  * `exports` is the module's public surface (ADR-0008) — later modules take
  * `JwtAuthGuard` to protect routes and the `USERS` port to look users up; the
@@ -33,10 +38,13 @@ import { DrizzleUsersRepository } from "./infra/drizzle-users.repository";
   controllers: [AuthController],
   providers: [
     SignInWithGoogleUseCase,
+    IssueExchangeCodeUseCase,
+    RedeemExchangeCodeUseCase,
     TokensService,
     GoogleStrategy,
     JwtAuthGuard,
     { provide: USERS, useClass: DrizzleUsersRepository },
+    { provide: EXCHANGE_CODES, useClass: DrizzleExchangeCodes },
   ],
   exports: [TokensService, JwtAuthGuard, USERS],
 })

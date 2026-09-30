@@ -30,10 +30,25 @@ export interface AuthTokenClaims {
 
 /**
  * The redirect the API sends the browser to after the Google round trip is
- * `${WEB_APP_URL}/#token=<jwt>`. The SPA reads the `token` from the URL
- * fragment, stores it in localStorage, and clears the fragment.
+ * `${WEB_APP_URL}/auth/callback?code=<exchange code>`. The code is short-lived
+ * and single-use; it is not the token. The SPA clears it from the URL and
+ * redeems it with `POST /auth/exchange`.
  */
 export interface AuthCallbackParams {
+  code: string;
+}
+
+/** The body of `POST /auth/exchange`: the exchange code from the callback URL. */
+export interface AuthExchangeRequest {
+  code: string;
+}
+
+/**
+ * What `POST /auth/exchange` answers with: the signed JWT (see
+ * {@link AuthTokenClaims}) the SPA stores and sends as a bearer token.
+ * An unknown, expired or already-used code gets a bare 401 instead.
+ */
+export interface AuthExchangeResponse {
   token: string;
 }
 

@@ -1,4 +1,6 @@
 import type {
+  AuthExchangeRequest,
+  AuthExchangeResponse,
   HealthResponse,
   JobProgressResponse,
   MeResponse,
@@ -131,14 +133,16 @@ export function getJobProgress(jobId: string): Promise<JobProgressResponse> {
 }
 
 /**
- * If the API bounced us back with `#token=...`, store it and strip the
- * fragment. Returns true when a token was captured.
+ * Trades the exchange code the sign-in redirect carried for the JWT, and stores
+ * it. The code is single-use and short-lived; an unknown, expired or used one
+ * throws `UnauthorizedError`.
  */
-export function captureTokenFromUrl(): boolean {
-  const hash = window.location.hash;
-  const match = /[#&]token=([^&]+)/.exec(hash);
-  if (!match) return false;
-  setToken(decodeURIComponent(match[1]!));
-  window.history.replaceState(null, "", window.location.pathname + window.location.search);
-  return true;
+export async function exchangeCode(code: string): Promise<void> {
+  const body: AuthExchangeRequest = { code };
+  const { token } = await apiFetch<AuthExchangeResponse>("/auth/exchange", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  setToken(token);
 }
