@@ -53,8 +53,9 @@ recorded as a deliberate tradeoff on PR #2 with this as the hardening path.
 - **Storage decision (user's call):** a Postgres table, `auth_exchange_codes`,
   owned by the identity module, keyed by the SHA-256 of the code. Not an
   in-memory map, because a Render free instance can restart between the redirect
-  and the redemption. Migration `0002_auth_exchange_codes` must be run against
-  each environment's database by hand until ticket 16 adds auto-migrate.
+  and the redemption. Migration `0003_auth_exchange_codes` (regenerated from
+  `0002` when rebased onto ticket 05's `0002_enrichment`) is applied on deploy
+  by ticket 16's start script.
 - A sibling use case, `IssueExchangeCodeUseCase`, mints the code (32 random
   bytes, base64url, 60 s lifetime). `RedeemExchangeCodeUseCase` takes it
   (atomic `DELETE … RETURNING` in the adapter), then checks expiry. Every
