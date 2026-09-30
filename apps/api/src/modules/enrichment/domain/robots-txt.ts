@@ -29,6 +29,40 @@ export interface RobotsRules {
 /** No file, an unreadable file, or a file with no group for us: everything is allowed. */
 export const ALLOW_EVERYTHING: RobotsRules = { rules: [] };
 
+/** A `robots.txt` behind a 401/403: the site is keeping us out entirely. */
+export const DISALLOW_EVERYTHING: RobotsRules = { rules: [{ allow: false, path: "/" }] };
+
+/**
+ * The rules a `robots.txt` response amounts to, by status first, as CPython's
+ * `RobotFileParser.read` decides it:
+ *
+ * - `401`/`403` → disallow everything: an access-controlled `robots.txt` means
+ *   the whole site is;
+ * - any other `4xx` (no file) → allow everything;
+ * - a success → parse the body.
+ *
+ * `null` — the request never produced a response (timeout, DNS, refused
+ * address, oversized body) — is allowed: `urlopen` raises for those, and
+ * `pode_acessar`'s `except: return True` turned that into permission.
+ *
+ * A `5xx` is allowed too, which is **not** what CPython does: it sets neither
+ * flag, never parses, and `can_fetch` then answers False. Kept permissive for
+ * now as the ticket 05 port had it; see the ticket's notes.
+ */
+export function robotsRulesFor(
+  status: number | null,
+  body: string | null,
+  userAgent: string,
+): RobotsRules {
+  if (status === 401 || status === 403) {
+    return DISALLOW_EVERYTHING;
+  }
+  if (status === null || body === null || status < 200 || status >= 300) {
+    return ALLOW_EVERYTHING;
+  }
+  return parseRobotsTxt(body, userAgent);
+}
+
 /**
  * Parses `robots.txt` into the rule group that applies to `userAgent`. A group
  * naming our agent wins over the `*` group; if neither exists, nothing is

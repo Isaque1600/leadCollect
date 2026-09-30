@@ -52,9 +52,10 @@ export function extractContacts(html: string): SiteContacts {
  * WhatsApp number found on the site beats the `nationalPhoneNumber` Places
  * returned, which beats a loose phone number scraped off the page.
  *
- * `placesPhone` is whatever the Lead carries at the moment Enrichment runs — the
- * Lead Pool upsert refreshes it from Places immediately before, so it really is
- * the Places value and not a leftover from an earlier Enrichment.
+ * `placesPhone` must be the `nationalPhoneNumber` Places returned in the Job at
+ * hand — never the Lead's stored `phone`, which after a first Enrichment holds
+ * whatever this function picked last time. Feeding that back in would let an old
+ * WhatsApp outrank Places forever (the `EnrichmentTarget.placesPhone` doc).
  */
 export function pickPhone(contacts: SiteContacts, placesPhone: string | null): string | null {
   return contacts.whatsapp ?? placesPhone ?? contacts.sitePhone;

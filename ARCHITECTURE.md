@@ -79,9 +79,30 @@ A visit is `robots.txt` first, then the page, with a 500 ms delay between every
 outgoing request and a 10 s timeout — the Python collector's numbers, ported per
 ADR-0004. Email, WhatsApp and phone come out by regex; the phone that lands on
 the Lead is the site's WhatsApp, else the `nationalPhoneNumber` from Places,
-else a phone found on the page. A site that will not load is never an error: the
+else a phone found on the page. `JobRunner` hands the Places phone from the
+current Job to Enrichment alongside the Lead (`EnrichmentTarget.placesPhone`),
+because after a first Enrichment the stored `leads.phone` is Enrichment's own
+pick — a Stale Lead's re-Enrichment re-applies the precedence with the fresh
+Places value. A site that will not load is never an error: the
 Lead simply keeps what it had, with `enriched_at` stamped so the dead site is not
 re-visited by every Job for the next 30 days.
+
+`robots.txt` is read the way CPython's `RobotFileParser` reads it: a 401/403
+disallows the whole site, any other 4xx allows it, a success is parsed. No
+response at all (and, unlike CPython, a 5xx) fails open, as `pode_acessar` did.
+
+`HttpWebsiteFetcher` is the only code that fetches URLs we did not choose, so it
+is fenced against SSRF, on `node:http`/`node:https` rather than `fetch` because
+only those take a custom `lookup` without adding `undici`:
+
+- `http:`/`https:` only;
+- the socket may only connect to a public unicast address — loopback, private,
+  link-local (cloud metadata), CGNAT, unspecified, multicast, NAT64 and
+  IPv4-mapped forms of those are refused (`infra/public-address.ts`). The check
+  runs inside the socket's own DNS `lookup`, so what is checked is what is
+  connected to (no DNS-rebinding window); IP-literal hosts are checked directly;
+- redirects are followed by hand, at most 5, each hop re-checked;
+- bodies are streamed and aborted past 2 MB (decoded bytes, so gzip bombs too).
 
 "In the background" is a floating promise inside the same process, exactly as
 `StartMapsJobUseCase` runs the Job itself — no queue and no scheduler (ADR-0003).

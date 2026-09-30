@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   isAllowed,
   parseRobotsTxt,
+  robotsRulesFor,
   robotsTxtUrl,
   ALLOW_EVERYTHING,
 } from "../../../../src/modules/enrichment/domain/robots-txt";
@@ -86,5 +87,33 @@ describe("parseRobotsTxt + isAllowed", () => {
   it("matches case-insensitively on the field names", () => {
     const robots = "USER-AGENT: *\nDISALLOW: /admin";
     expect(mayFetch(robots, "https://clinica.com.br/admin")).toBe(false);
+  });
+});
+
+describe("robotsRulesFor", () => {
+  const PAGE = "https://clinica.com.br/contato";
+  const mayFetchAfter = (status: number | null, body: string | null = "") =>
+    isAllowed(robotsRulesFor(status, body, "leadbot"), PAGE);
+
+  it.each([401, 403])("reads a %i as disallow-all, as urllib.robotparser does", (status) => {
+    expect(mayFetchAfter(status)).toBe(false);
+    expect(isAllowed(robotsRulesFor(status, "", "leadbot"), "https://clinica.com.br/")).toBe(false);
+  });
+
+  it.each([400, 404, 410, 429])("reads any other %i as allow-all", (status) => {
+    expect(mayFetchAfter(status, "User-agent: *\nDisallow: /")).toBe(true);
+  });
+
+  it("parses the body of a success", () => {
+    expect(mayFetchAfter(200, "User-agent: *\nDisallow: /contato")).toBe(false);
+    expect(mayFetchAfter(200, "User-agent: *\nDisallow: /admin")).toBe(true);
+  });
+
+  it("allows when no response came back at all, like pode_acessar's except", () => {
+    expect(mayFetchAfter(null, null)).toBe(true);
+  });
+
+  it("allows on a 5xx — a known divergence from CPython, which refuses", () => {
+    expect(mayFetchAfter(503, "User-agent: *\nDisallow: /")).toBe(true);
   });
 });

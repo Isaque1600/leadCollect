@@ -92,8 +92,10 @@ export class JobRunner {
         // never been enriched, a background refresh if it is a Stale Lead,
         // nothing otherwise. Awaited, but only the first case actually visits a
         // site before returning — a Stale Lead's refresh runs on after the Job
-        // has finished (ticket 05).
-        await this.enrichment.enrichCollectedLead(lead);
+        // has finished (ticket 05). The Places phone goes along separately: once
+        // a Lead is enriched its stored `phone` is Enrichment's pick, not
+        // Places', and the phone precedence needs the fresh Places value.
+        await this.enrichment.enrichCollectedLead({ ...lead, placesPhone: details.phone });
 
         await this.jobs.update(job.id, {
           leadsFound,

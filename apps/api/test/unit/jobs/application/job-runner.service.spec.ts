@@ -159,6 +159,7 @@ describe("JobRunner", () => {
         id: leadPool.leads[0]!.id,
         website: "https://sorriso.com.br/",
         phone: "(83) 3421-0000",
+        placesPhone: "(83) 3421-0000",
         enrichedAt: null,
       }),
     ]);

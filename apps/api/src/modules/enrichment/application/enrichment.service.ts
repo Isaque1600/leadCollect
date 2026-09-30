@@ -69,7 +69,12 @@ export class EnrichmentService implements Enrichment {
         // A found value wins; nothing found leaves what the Lead already had,
         // so one bad visit cannot erase a good email collected months ago.
         email: contacts.email ?? target.email,
-        phone: pickPhone(contacts, target.phone),
+        // The same precedence as a first Enrichment, with the Places phone
+        // from *this* Job — not the stored phone, which a Stale Lead's last
+        // Enrichment may have set to a WhatsApp the site has since dropped.
+        // The stored phone is only the last resort, by the same "a null does
+        // not erase" rule as the email.
+        phone: pickPhone(contacts, target.placesPhone) ?? target.phone,
         enrichedAt: new Date(),
       });
     } catch (error) {

@@ -11,7 +11,7 @@ import { DrizzleJobsRepository } from "../../../src/modules/jobs/infra/drizzle-j
 import { GooglePlacesMapsSource } from "../../../src/modules/jobs/infra/google-places.maps-source";
 import { JobRunner } from "../../../src/modules/jobs/application/job-runner.service";
 import { EnrichmentService } from "../../../src/modules/enrichment/application/enrichment.service";
-import { HttpWebsiteFetcher } from "../../../src/modules/enrichment/infra/http-website-fetcher";
+import type { WebsiteFetcher } from "../../../src/modules/enrichment/domain/website-fetcher.port";
 import type { JobParams } from "../../../src/modules/jobs/domain/job";
 
 /**
@@ -35,22 +35,28 @@ const jobParams: JobParams = {
 };
 
 /**
- * The responses `fetch` is stubbed with: the Places search and details calls,
- * plus any company site Enrichment goes on to visit (keyed by full URL — a URL
- * that is absent answers 404, which stands for "no robots.txt" or "site down").
+ * The company sites Enrichment visits, keyed by URL; an absent URL reads as
+ * unreadable. The real `HttpWebsiteFetcher` speaks `node:http` behind an SSRF
+ * fence and has its own spec against a loopback server — what this test covers
+ * is what Enrichment writes into Postgres, so the web is scripted here.
+ */
+let sites: Record<string, string> = {};
+
+const scriptedWeb: WebsiteFetcher = {
+  fetchPage: async (url) => sites[url] ?? null,
+};
+
+/**
+ * The responses `fetch` is stubbed with — the Places search and details calls —
+ * and the company sites `scriptedWeb` serves for this test.
  */
 function stubPlaces(
   searchResults: { id: string; displayName: { text: string } }[],
   details: Record<string, Record<string, unknown>>,
-  sites: Record<string, string> = {},
+  sitePages: Record<string, string> = {},
 ) {
+  sites = sitePages;
   const fetchMock = vi.fn(async (input: string) => {
-    if (!input.startsWith("https://places.googleapis.com")) {
-      const page = sites[input];
-      return page === undefined
-        ? { ok: false, status: 404, json: async () => ({}), text: async () => "" }
-        : { ok: true, status: 200, json: async () => ({}), text: async () => page };
-    }
     const body = input.includes("places:searchText")
       ? { places: searchResults }
       : (details[decodeURIComponent(input.split("/v1/places/")[1] ?? "")] ?? {});
@@ -74,9 +80,8 @@ describe.skipIf(!url)("Maps Source Job (integration)", () => {
     jobsRepository = new DrizzleJobsRepository(db);
     const leadPool = new DrizzleLeadPoolRepository(db);
     const maps = new GooglePlacesMapsSource({ apiKey: "test-places-key" });
-    // Real Enrichment against a stubbed web: `delayMs: 0` because the politeness
-    // delay is the fetcher's own unit test, not this one's.
-    const enrichment = new EnrichmentService(new HttpWebsiteFetcher({ delayMs: 0 }), leadPool);
+    // Real Enrichment and a real Lead Pool; only the web itself is scripted.
+    const enrichment = new EnrichmentService(scriptedWeb, leadPool);
     // The runner is driven directly and awaited here; `StartMapsJobUseCase`
     // deliberately does not await it, which a test cannot assert against.
     runner = new JobRunner(jobsRepository, maps, leadPool, enrichment);
@@ -97,6 +102,7 @@ describe.skipIf(!url)("Maps Source Job (integration)", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    sites = {};
   });
 
   it("runs a Job end to end and stores the Leads it collected", async () => {
@@ -171,7 +177,6 @@ describe.skipIf(!url)("Maps Source Job (integration)", () => {
         },
       },
       {
-        "https://sorriso.com.br/robots.txt": "User-agent: *\nDisallow: /admin",
         "https://sorriso.com.br/":
           '<a href="mailto:contato@sorriso.com.br">e-mail</a>' +
           '<a href="https://wa.me/5583999990000">WhatsApp</a>',
@@ -244,6 +249,46 @@ describe.skipIf(!url)("Maps Source Job (integration)", () => {
       const [refreshed] = await db.select().from(leads).where(eq(leads.id, seeded!.id));
       expect(refreshed!.email).toBe("novo@sorriso.com.br");
       expect(refreshed!.enrichedAt!.getTime()).toBeGreaterThan(staleAt.getTime());
+    });
+  });
+
+  it("re-applies the phone precedence with the fresh Places phone when a Stale Lead is re-enriched", async () => {
+    stubPlaces(
+      [{ id: "place-a", displayName: { text: "Clínica A" } }],
+      {
+        "place-a": {
+          id: "place-a",
+          displayName: { text: "Clínica Sorriso" },
+          nationalPhoneNumber: "(83) 3421-0000",
+          websiteUri: "https://sorriso.com.br/",
+        },
+      },
+      // The site no longer carries a WhatsApp link.
+      { "https://sorriso.com.br/": "<p>Ligue para a recepção</p>" },
+    );
+
+    // Its last Enrichment, 31 days ago, stored the site's WhatsApp as the phone.
+    const staleAt = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000);
+    const [seeded] = await db
+      .insert(leads)
+      .values({
+        placeId: "place-a",
+        name: "Clínica Sorriso",
+        phone: "5583999990000",
+        hasWebsite: true,
+        website: "https://sorriso.com.br/",
+        source: "Google Maps",
+        enrichedAt: staleAt,
+      })
+      .returning();
+
+    await runner.run(await jobsRepository.create(userId, jobParams));
+
+    await vi.waitFor(async () => {
+      const [refreshed] = await db.select().from(leads).where(eq(leads.id, seeded!.id));
+      expect(refreshed!.enrichedAt!.getTime()).toBeGreaterThan(staleAt.getTime());
+      // No WhatsApp on the site any more, so the Places phone outranks the rest.
+      expect(refreshed!.phone).toBe("(83) 3421-0000");
     });
   });
 
